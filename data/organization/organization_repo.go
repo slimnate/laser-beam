@@ -8,6 +8,7 @@ import (
 	"github.com/mattn/go-sqlite3"
 )
 
+// Errors
 var (
 	ErrDuplicate    = errors.New("record already exists")
 	ErrNotExists    = errors.New("row does not exist")
@@ -15,6 +16,7 @@ var (
 	ErrDeleteFailed = errors.New("delete failed")
 )
 
+// Repository
 type SQLiteRepository struct {
 	db *sql.DB
 }
@@ -82,7 +84,20 @@ func (r *SQLiteRepository) All() ([]Organization, error) {
 }
 
 func (r *SQLiteRepository) GetByID(id int64) (*Organization, error) {
-	row := r.db.QueryRow("SELECT * FROM organizations WHERE id = ?", id)
+	row := r.db.QueryRow("SELECT id, key, name FROM organizations WHERE id = ?", id)
+
+	var org Organization
+	if err := row.Scan(&org.ID, &org.Key, &org.Name); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrNotExists
+		}
+		return nil, err
+	}
+	return &org, nil
+}
+
+func (r *SQLiteRepository) GetByKey(key string) (*Organization, error) {
+	row := r.db.QueryRow("SELECT id, key, name FROM organizations WHERE key = ?", key)
 
 	var org Organization
 	if err := row.Scan(&org.ID, &org.Key, &org.Name); err != nil {
