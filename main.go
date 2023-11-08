@@ -203,6 +203,7 @@ func main() {
 		orgAuthGroup.GET("/events", eventController.List)
 		orgAuthGroup.GET("/events/:event_id", eventController.Details)
 		orgAuthGroup.POST("/events", eventController.Create)
+		orgAuthGroup.PUT("/events/:event_id", eventController.Update)
 	}
 
 	router.Run(":8080")

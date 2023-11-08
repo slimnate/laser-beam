@@ -96,7 +96,22 @@ func (r *SQLiteRepository) AllForOrganization(orgID int64) ([]Event, error) {
 	return all, nil
 }
 
-func (r *SQLiteRepository) GetByID(id int64, orgID int64) (*Event, error) {
+func (r *SQLiteRepository) GetByID(id int64) (*Event, error) {
+	row := r.db.QueryRow("SELECT id, message, name, organization_id, time, type FROM events WHERE id = ?", id)
+
+	var e Event
+	var timestamp int64
+	if err := row.Scan(&e.ID, &e.Message, &e.Name, &e.OrganizationID, &timestamp, &e.Type); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrNotExists
+		}
+		return nil, err
+	}
+	e.Time = time.Unix(timestamp, 0)
+	return &e, nil
+}
+
+func (r *SQLiteRepository) GetByIDAndOrg(id int64, orgID int64) (*Event, error) {
 	row := r.db.QueryRow("SELECT id, message, name, organization_id, time, type FROM events WHERE id = ? AND organization_id = ?", id, orgID)
 
 	var e Event
@@ -111,12 +126,12 @@ func (r *SQLiteRepository) GetByID(id int64, orgID int64) (*Event, error) {
 	return &e, nil
 }
 
-func (r *SQLiteRepository) Update(id int64, updated Event) (*Event, error) {
+func (r *SQLiteRepository) Update(id int64, newEvent Event) (*Event, error) {
 	if id == 0 {
 		return nil, errors.New("invalid ID to update")
 	}
 	query := "UPDATE events SET name = ?, type = ?, message = ? WHERE id = ?"
-	res, err := r.db.Exec(query, updated.Name, updated.Type, updated.Message, updated.ID)
+	res, err := r.db.Exec(query, newEvent.Name, newEvent.Type, newEvent.Message, id)
 
 	if err != nil {
 		return nil, err
@@ -131,7 +146,12 @@ func (r *SQLiteRepository) Update(id int64, updated Event) (*Event, error) {
 		return nil, ErrUpdateFailed
 	}
 
-	return &updated, nil
+	updated, err := r.GetByID(id)
+	if err != nil {
+		return nil, err
+	}
+
+	return updated, nil
 }
 
 func (r *SQLiteRepository) Delete(id int64) error {
