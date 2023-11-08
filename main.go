@@ -60,7 +60,7 @@ func OrgAuthMiddleware(orgRepo *organization.SQLiteRepository) gin.HandlerFunc {
 			return
 		}
 
-		ctx.Set("apiKey", org.Key)
+		ctx.Set("apiKey", key)
 		ctx.Set("authorizedOrgID", org.ID)
 	}
 }
@@ -88,18 +88,22 @@ func InitOrganization(db *sql.DB) (*organization.OrganizationController, *organi
 	}
 
 	//set up dummy data
-	orgs := []organization.Organization{
+	orgs := []organization.OrganizationSecret{
 		{
-			Name: "Organization 1",
-			Key:  "secret1",
+			Organization: organization.Organization{
+				Name: "Organization 1",
+			},
+			Key: "secret1",
 		},
 		{
-			Name: "Organization 2",
-			Key:  "secret2",
+			Organization: organization.Organization{
+				Name: "Organization 2",
+			},
+			Key: "secret2",
 		},
 	}
 	for _, org := range orgs {
-		createdOrg, err := repo.Create(org)
+		createdOrg, err := repo.Create(org.Organization, org.Key)
 		if err != nil {
 			log.Fatal(err)
 		}

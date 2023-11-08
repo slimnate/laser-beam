@@ -40,9 +40,9 @@ func (r *SQLiteRepository) Migrate() error {
 	return err
 }
 
-func (r *SQLiteRepository) Create(org Organization) (*Organization, error) {
+func (r *SQLiteRepository) Create(org Organization, key string) (*Organization, error) {
 	query := "INSERT INTO organizations(name, key) values(?, ?)"
-	res, err := r.db.Exec(query, org.Name, org.Key)
+	res, err := r.db.Exec(query, org.Name, key)
 
 	if err != nil {
 		var sqliteErr sqlite3.Error
@@ -66,7 +66,7 @@ func (r *SQLiteRepository) Create(org Organization) (*Organization, error) {
 }
 
 func (r *SQLiteRepository) All() ([]Organization, error) {
-	rows, err := r.db.Query("SELECT * from organizations")
+	rows, err := r.db.Query("SELECT id, name from organizations")
 	if err != nil {
 		return nil, err
 	}
@@ -75,7 +75,7 @@ func (r *SQLiteRepository) All() ([]Organization, error) {
 	var all []Organization
 	for rows.Next() {
 		var org Organization
-		if err := rows.Scan(&org.ID, &org.Name, &org.Key); err != nil {
+		if err := rows.Scan(&org.ID, &org.Name); err != nil {
 			return nil, err
 		}
 		all = append(all, org)
@@ -84,10 +84,10 @@ func (r *SQLiteRepository) All() ([]Organization, error) {
 }
 
 func (r *SQLiteRepository) GetByID(id int64) (*Organization, error) {
-	row := r.db.QueryRow("SELECT id, key, name FROM organizations WHERE id = ?", id)
+	row := r.db.QueryRow("SELECT id, name FROM organizations WHERE id = ?", id)
 
 	var org Organization
-	if err := row.Scan(&org.ID, &org.Key, &org.Name); err != nil {
+	if err := row.Scan(&org.ID, &org.Name); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrNotExists
 		}
@@ -97,10 +97,10 @@ func (r *SQLiteRepository) GetByID(id int64) (*Organization, error) {
 }
 
 func (r *SQLiteRepository) GetByKey(key string) (*Organization, error) {
-	row := r.db.QueryRow("SELECT id, key, name FROM organizations WHERE key = ?", key)
+	row := r.db.QueryRow("SELECT id, name FROM organizations WHERE key = ?", key)
 
 	var org Organization
-	if err := row.Scan(&org.ID, &org.Key, &org.Name); err != nil {
+	if err := row.Scan(&org.ID, &org.Name); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrNotExists
 		}
@@ -113,8 +113,8 @@ func (r *SQLiteRepository) Update(id int64, updated Organization) (*Organization
 	if id == 0 {
 		return nil, errors.New("invalid ID to update")
 	}
-	query := "UPDATE organizations SET name = ?, key = ? WHERE id = ?"
-	res, err := r.db.Exec(query, updated.Name, updated.Key, updated.ID)
+	query := "UPDATE organizations SET name = ? WHERE id = ?"
+	res, err := r.db.Exec(query, updated.Name, updated.ID)
 
 	if err != nil {
 		return nil, err
