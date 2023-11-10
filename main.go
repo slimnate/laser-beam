@@ -3,9 +3,10 @@ package main
 import (
 	"database/sql"
 	"fmt"
-	"html/template"
 	"log"
+	"net/http"
 	"os"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 	_ "github.com/mattn/go-sqlite3"
@@ -182,15 +183,51 @@ func main() {
 	// init router
 	router := gin.Default()
 
+	router.LoadHTMLGlob("templates/**/*.html")
 	router.Static("/static", "./static")
 
 	router.GET("/", func(ctx *gin.Context) {
-		tmpl := template.Must(template.ParseFiles("./templates/index.html"))
-		tmpl.Execute(ctx.Writer, nil)
+		orgIDCookie, err := ctx.Cookie("organization_id")
+		if err != nil {
+			ctx.Redirect(http.StatusFound, "/login")
+			return
+		}
+		orgID, err := strconv.ParseInt(orgIDCookie, 10, 64)
+		if err != nil {
+			ctx.Redirect(http.StatusFound, "/login")
+			return
+		}
+
+		ctx.HTML(200, "index.html", gin.H{"org_id": orgID})
+	})
+
+	router.GET("/login", func(ctx *gin.Context) {
+		ctx.HTML(http.StatusFound, "login.html", nil)
 	})
 
 	router.POST("/login", func(ctx *gin.Context) {
-		ctx.PostForm("organization_id")
+		org_id, err := strconv.ParseInt(ctx.PostForm("organization_id"), 10, 64)
+		if err != nil {
+			ctx.AbortWithStatusJSON(500, gin.H{"error": "invalid organization_id"})
+		}
+		log.Printf("Incoming login request: %d", org_id)
+		cookie := &http.Cookie{
+			Name:   "organization_id",
+			Value:  strconv.FormatInt(org_id, 10),
+			MaxAge: 0,
+		}
+		ctx.SetCookie(cookie.Name, cookie.Value, cookie.MaxAge, cookie.Path, cookie.Domain, cookie.Secure, cookie.HttpOnly)
+		ctx.Redirect(302, "/")
+	})
+
+	router.GET("/logout", func(ctx *gin.Context) {
+		orgIDCookie, err := ctx.Request.Cookie("organization_id")
+		if err != nil {
+			ctx.Redirect(302, "/")
+		}
+
+		ctx.SetCookie(orgIDCookie.Name, orgIDCookie.Value, -1, orgIDCookie.Path, orgIDCookie.Domain, orgIDCookie.Secure, orgIDCookie.HttpOnly)
+		ctx.Redirect(302, "/")
 	})
 
 	router.GET("/org", orgController.List)

@@ -1,0 +1,13 @@
+<html lang="en">
+  {{ template "head.html" }}
+  <body>
+    {{ template "navbar.html"}}
+
+    <main class="h-screen min-h-full">
+      <div class="text-3xl">Welcome</div>
+      <div>Organization: {{ .org_id }}</div>
+    </main>
+
+    {{ template "footer.html" }}
+  </body>
+</html>
