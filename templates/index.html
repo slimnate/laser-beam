@@ -1,0 +1,41 @@
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LaserBeam</title>
+    <link rel="stylesheet" href="/static/css/styles.css" />
+    <script src="static/js/htmx.min.js"></script>
+  </head>
+  <body class="mx-6">
+    <main class="flex h-screen min-h-full flex-col justify-center">
+      <div
+        class="mx-auto flex flex-col rounded-lg border-slate-500 bg-slate-300 p-8"
+      >
+        <h1 class="text-2xl">Welcome to LaserBeam</h1>
+        <p class="text-lg">Enter your Organization ID</p>
+        <form class="flex flex-col pt-12" action="/login" method="POST">
+          <div class="mb-6 flex justify-end">
+            <label for="organization_id" class="p-2.5 text-sm font-medium"
+              >Organization ID:</label
+            >
+            <input
+              id="organization_id"
+              name="organization_id"
+              type="text"
+              class="w-32 rounded-md border p-2.5 focus:border-blue-500 focus-visible:!outline-0"
+            />
+          </div>
+
+          <div class="flex w-full justify-end">
+            <button
+              type="submit"
+              class="rounded-md border border-blue-800 bg-blue-500 p-2.5 px-4 font-semibold"
+            >
+              Log In
+            </button>
+          </div>
+        </form>
+      </div>
+    </main>
+  </body>
+</html>

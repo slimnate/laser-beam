@@ -3,6 +3,7 @@ package main
 import (
 	"database/sql"
 	"fmt"
+	"html/template"
 	"log"
 	"os"
 
@@ -184,7 +185,12 @@ func main() {
 	router.Static("/static", "./static")
 
 	router.GET("/", func(ctx *gin.Context) {
-		ctx.String(200, "Hello!")
+		tmpl := template.Must(template.ParseFiles("./templates/index.html"))
+		tmpl.Execute(ctx.Writer, nil)
+	})
+
+	router.POST("/login", func(ctx *gin.Context) {
+		ctx.PostForm("organization_id")
 	})
 
 	router.GET("/org", orgController.List)
