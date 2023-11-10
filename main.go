@@ -181,6 +181,8 @@ func main() {
 	// init router
 	router := gin.Default()
 
+	router.Static("/static", "./static")
+
 	router.GET("/", func(ctx *gin.Context) {
 		ctx.String(200, "Hello!")
 	})
