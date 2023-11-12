@@ -12,6 +12,7 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/slimnate/laser-beam/data/event"
 	"github.com/slimnate/laser-beam/data/organization"
+	"github.com/slimnate/laser-beam/data/user"
 )
 
 const dbFile = "data.db"
@@ -93,7 +94,7 @@ func InitOrganization(db *sql.DB) (*organization.OrganizationController, *organi
 	orgs := []organization.OrganizationSecret{
 		{
 			Organization: organization.Organization{
-				Name: "Organization 1",
+				Name: "Global Org",
 			},
 			Key: "secret1",
 		},
@@ -102,6 +103,12 @@ func InitOrganization(db *sql.DB) (*organization.OrganizationController, *organi
 				Name: "Organization 2",
 			},
 			Key: "secret2",
+		},
+		{
+			Organization: organization.Organization{
+				Name: "Organization 3",
+			},
+			Key: "secret3",
 		},
 	}
 	for _, org := range orgs {
@@ -128,47 +135,98 @@ func InitEvent(db *sql.DB) (*event.EventController, *event.SQLiteRepository) {
 			Name:           "Error 1",
 			Type:           "error",
 			Message:        "Some error message",
-			OrganizationID: 1,
+			OrganizationID: 2,
 		},
 		{
 			Name:           "Error 2",
 			Type:           "error",
 			Message:        "Some error message",
-			OrganizationID: 1,
+			OrganizationID: 2,
 		},
 		{
 			Name:           "Info 1",
 			Type:           "info",
 			Message:        "Some info message",
-			OrganizationID: 1,
+			OrganizationID: 2,
 		},
 		{
 			Name:           "Error 1",
 			Type:           "error",
 			Message:        "Some error message",
-			OrganizationID: 2,
+			OrganizationID: 3,
 		},
 		{
 			Name:           "Error 2",
 			Type:           "error",
 			Message:        "Some error message",
-			OrganizationID: 2,
+			OrganizationID: 3,
 		},
 		{
 			Name:           "Info 1",
 			Type:           "info",
 			Message:        "Some info message",
-			OrganizationID: 2,
+			OrganizationID: 3,
 		},
 	}
 
 	for _, event := range events {
 		created, err := repo.Create(event, event.OrganizationID)
 		if err != nil {
-			log.Println("asdf")
 			log.Fatal(err)
 		}
 		fmt.Printf("Created event - id = %d | name = %s | type = %s | message = %s | organization_id = %d | time = %s \n", created.ID, created.Name, created.Type, created.Message, created.OrganizationID, created.Time.Format("20060102150405"))
+	}
+
+	return controller, repo
+}
+
+func InitUser(db *sql.DB) (*user.UserController, *user.SQLiteRepository) {
+	repo := user.NewSQLiteRepository(db)
+	controller := user.NewUserController(repo)
+
+	if err := repo.Migrate(); err != nil {
+		log.Fatal("Migration error", err)
+	}
+
+	users := []user.UserSecret{
+		{
+			User: user.User{
+				Username:       "admin1",
+				FirstName:      "Admin",
+				LastName:       "Global",
+				AdminStatus:    2,
+				OrganizationID: 1,
+			},
+			Password: "password",
+		},
+		{
+			User: user.User{
+				Username:       "admin2",
+				FirstName:      "Admin",
+				LastName:       "One",
+				AdminStatus:    1,
+				OrganizationID: 2,
+			},
+			Password: "password",
+		},
+		{
+			User: user.User{
+				Username:       "user2",
+				FirstName:      "User",
+				LastName:       "One",
+				AdminStatus:    0,
+				OrganizationID: 2,
+			},
+			Password: "password",
+		},
+	}
+
+	for _, user := range users {
+		created, err := repo.Create(user)
+		if err != nil {
+			log.Fatal(err)
+		}
+		fmt.Printf("Create user - id: %d | username: %s | first: %s | last: %s | admin: %d, org_id: %d \n", created.ID, created.Username, created.FirstName, created.LastName, created.AdminStatus, created.OrganizationID)
 	}
 
 	return controller, repo
@@ -179,6 +237,7 @@ func main() {
 	db := InitDB()
 	orgController, orgRepo := InitOrganization(db)
 	eventController, _ := InitEvent(db)
+	userController, _ := InitUser(db)
 
 	// init router
 	router := gin.Default()
@@ -249,6 +308,8 @@ func main() {
 		orgAuthGroup.GET("/events/:event_id", eventController.Details)
 		orgAuthGroup.POST("/events", eventController.Create)
 		orgAuthGroup.PUT("/events/:event_id", eventController.Update)
+
+		orgAuthGroup.GET("/users", userController.List)
 	}
 
 	router.Run(":8080")

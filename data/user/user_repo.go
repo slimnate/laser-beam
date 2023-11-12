@@ -25,7 +25,7 @@ func (r *SQLiteRepository) Migrate() error {
 	CREATE TABLE IF NOT EXISTS users(
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		username TEXT NOT NULL UNIQUE,
-		password TEXT NOT NULL
+		password TEXT NOT NULL,
 		first_name TEXT NOT NULL,
 		last_name TEXT NOT NULL,
 		admin_status INTEGER NOT NULL,
@@ -65,6 +65,24 @@ func (r *SQLiteRepository) Create(user UserSecret) (*User, error) {
 	user.ID = id
 
 	return &user.User, nil
+}
+
+func (r *SQLiteRepository) AllForOrganization(orgID int64) ([]User, error) {
+	rows, err := r.db.Query("SELECT id, username, first_name, last_name, admin_status, organization_id FROM users WHERE organization_id = ?", orgID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var all []User
+	for rows.Next() {
+		var u User
+		if err := rows.Scan(&u.ID, &u.Username, &u.FirstName, &u.LastName, &u.AdminStatus, &u.OrganizationID); err != nil {
+			return nil, err
+		}
+		all = append(all, u)
+	}
+	return all, nil
 }
 
 func (r *SQLiteRepository) GetByID(id int64) (*User, error) {
