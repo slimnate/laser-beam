@@ -7,14 +7,7 @@ import (
 	"time"
 
 	"github.com/mattn/go-sqlite3"
-)
-
-var (
-	ErrDuplicate    = errors.New("record already exists")
-	ErrNotExists    = errors.New("row does not exist")
-	ErrUpdateFailed = errors.New("update failed")
-	ErrDeleteFailed = errors.New("delete failed")
-	ErrForeignKey   = errors.New("invalid foreign key")
+	"github.com/slimnate/laser-beam/data"
 )
 
 type SQLiteRepository struct {
@@ -54,10 +47,10 @@ func (r *SQLiteRepository) Create(event Event, orgID int64) (*Event, error) {
 		var sqliteErr sqlite3.Error
 		if errors.As(err, &sqliteErr) {
 			if errors.Is(sqliteErr.ExtendedCode, sqlite3.ErrConstraintUnique) {
-				return nil, ErrDuplicate
+				return nil, data.ErrDuplicate
 			}
 			if errors.Is(sqliteErr.ExtendedCode, sqlite3.ErrConstraintForeignKey) {
-				return nil, ErrForeignKey
+				return nil, data.ErrForeignKey
 			}
 		}
 
@@ -103,7 +96,7 @@ func (r *SQLiteRepository) GetByID(id int64) (*Event, error) {
 	var timestamp int64
 	if err := row.Scan(&e.ID, &e.Message, &e.Name, &e.OrganizationID, &timestamp, &e.Type); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, ErrNotExists
+			return nil, data.ErrNotExists
 		}
 		return nil, err
 	}
@@ -118,7 +111,7 @@ func (r *SQLiteRepository) GetByIDAndOrg(id int64, orgID int64) (*Event, error) 
 	var timestamp int64
 	if err := row.Scan(&e.ID, &e.Message, &e.Name, &e.OrganizationID, &timestamp, &e.Type); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, ErrNotExists
+			return nil, data.ErrNotExists
 		}
 		return nil, err
 	}
@@ -143,7 +136,7 @@ func (r *SQLiteRepository) Update(id int64, newEvent Event) (*Event, error) {
 	}
 
 	if rowsAffected == 0 {
-		return nil, ErrUpdateFailed
+		return nil, data.ErrUpdateFailed
 	}
 
 	updated, err := r.GetByID(id)
@@ -166,7 +159,7 @@ func (r *SQLiteRepository) Delete(id int64) error {
 	}
 
 	if rowsAffected == 0 {
-		return ErrDeleteFailed
+		return data.ErrDeleteFailed
 	}
 
 	return err

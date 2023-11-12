@@ -6,14 +6,7 @@ import (
 	"fmt"
 
 	"github.com/mattn/go-sqlite3"
-)
-
-// Errors
-var (
-	ErrDuplicate    = errors.New("record already exists")
-	ErrNotExists    = errors.New("row does not exist")
-	ErrUpdateFailed = errors.New("update failed")
-	ErrDeleteFailed = errors.New("delete failed")
+	"github.com/slimnate/laser-beam/data"
 )
 
 // Repository
@@ -48,7 +41,7 @@ func (r *SQLiteRepository) Create(org Organization, key string) (*Organization, 
 		var sqliteErr sqlite3.Error
 		if errors.As(err, &sqliteErr) {
 			if errors.Is(sqliteErr.ExtendedCode, sqlite3.ErrConstraintUnique) {
-				return nil, ErrDuplicate
+				return nil, data.ErrDuplicate
 			}
 		}
 		fmt.Printf("err: %v\n", err)
@@ -89,7 +82,7 @@ func (r *SQLiteRepository) GetByID(id int64) (*Organization, error) {
 	var org Organization
 	if err := row.Scan(&org.ID, &org.Name); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, ErrNotExists
+			return nil, data.ErrNotExists
 		}
 		return nil, err
 	}
@@ -102,7 +95,7 @@ func (r *SQLiteRepository) GetByKey(key string) (*Organization, error) {
 	var org Organization
 	if err := row.Scan(&org.ID, &org.Name); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, ErrNotExists
+			return nil, data.ErrNotExists
 		}
 		return nil, err
 	}
@@ -126,7 +119,7 @@ func (r *SQLiteRepository) Update(id int64, updated Organization) (*Organization
 	}
 
 	if rowsAffected == 0 {
-		return nil, ErrUpdateFailed
+		return nil, data.ErrUpdateFailed
 	}
 
 	return &updated, nil
@@ -144,7 +137,7 @@ func (r *SQLiteRepository) Delete(id int64) error {
 	}
 
 	if rowsAffected == 0 {
-		return ErrDeleteFailed
+		return data.ErrDeleteFailed
 	}
 
 	return err
