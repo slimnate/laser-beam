@@ -2,11 +2,12 @@
   <div
     class="mx-auto flex max-w-screen-xl flex-wrap items-center justify-between p-4"
   >
-    <a href="/" class="flex items-center space-x-3 rtl:space-x-reverse">
-      <span class="self-center whitespace-nowrap text-2xl font-semibold"
-        >LaserBeam</span
-      >
-    </a>
+    <div class="flex items-baseline space-x-3 rtl:space-x-reverse">
+      <a href="/">
+        <span class="whitespace-nowrap text-2xl font-semibold">LaserBeam</span>
+      </a>
+    </div>
+    <span class="text-md"> {{ .Organization.Name }} </span>
     <button
       data-collapse-toggle="navbar-default"
       type="button"

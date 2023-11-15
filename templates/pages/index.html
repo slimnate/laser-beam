@@ -1,11 +1,12 @@
 <html lang="en">
   {{ template "head.html" }}
   <body>
-    {{ template "navbar.html"}}
+    {{ template "navbar.html" . }}
 
-    <main class="h-screen min-h-full">
-      <div class="text-3xl">Welcome</div>
-      <div>Organization: {{ .org_id }}</div>
+    <main class="mx-12 mt-4 h-screen">
+      <div class="mb-8 text-3xl">Welcome, {{ .User.FullName }}</div>
+
+      {{ template "events_table.html" .Events }}
     </main>
 
     {{ template "footer.html" }}

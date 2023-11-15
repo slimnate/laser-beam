@@ -1,5 +1,7 @@
 package user
 
+import "fmt"
+
 type User struct {
 	ID             int64
 	Username       string
@@ -12,4 +14,8 @@ type User struct {
 type UserSecret struct {
 	User
 	Password string
+}
+
+func (u *User) FullName() string {
+	return fmt.Sprintf("%s %s", u.FirstName, u.LastName)
 }

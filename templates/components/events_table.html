@@ -1,0 +1,44 @@
+<div class="text-lg font-semibold">Events</div>
+<div class="relative overflow-x-auto shadow-md sm:rounded-lg">
+  <table
+    class="w-full text-left text-sm text-gray-500 rtl:text-right dark:text-gray-400"
+  >
+    <thead
+      class="bg-gray-50 text-xs uppercase text-gray-700 dark:bg-gray-700 dark:text-gray-400"
+    >
+      <tr>
+        <th scope="col" class="px-6 py-3">ID</th>
+        <th scope="col" class="px-6 py-3">Type</th>
+        <th scope="col" class="px-6 py-3">Name</th>
+        <th scope="col" class="px-6 py-3">Message</th>
+        <th scope="col" class="px-6 py-3">Time</th>
+        <th scope="col" class="px-6 py-3">Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{ range $_, $event := . }}
+      <tr
+        class="border-b odd:bg-white even:bg-gray-50 dark:border-gray-700 odd:dark:bg-gray-900 even:dark:bg-gray-800"
+      >
+        <th
+          scope="row-{{ $event.ID }}"
+          class="whitespace-nowrap px-6 py-4 font-medium text-gray-900 dark:text-white"
+        >
+          {{ $event.ID }}
+        </th>
+        <td class="px-6 py-4">{{ $event.Type }}</td>
+        <td class="px-6 py-4">{{ $event.Name }}</td>
+        <td class="px-6 py-4">{{ $event.Message }}</td>
+        <td class="px-6 py-4">{{ $event.Time }}</td>
+        <td class="px-6 py-4">
+          <a
+            href="#"
+            class="font-medium text-blue-600 hover:underline dark:text-blue-500"
+            >Edit</a
+          >
+        </td>
+      </tr>
+      {{ end }}
+    </tbody>
+  </table>
+</div>

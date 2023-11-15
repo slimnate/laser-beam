@@ -18,7 +18,7 @@ import (
 
 const dbFile = "data.db"
 const autoLogin = true
-const autoLoginUser = "admin1"
+const autoLoginUser = "admin2"
 
 func AuthMiddleware(sessionRepo *session.SQLiteRepository, userRepo *user.SQLiteRepository) gin.HandlerFunc {
 	// if auto-login is enabled, we skip checking for any session keys
@@ -56,7 +56,6 @@ func AuthMiddleware(sessionRepo *session.SQLiteRepository, userRepo *user.SQLite
 
 		// set the userID and orgID on the query context
 		ctx.Set("user", user)
-		ctx.Set("orgID", user.OrganizationID)
 
 		ctx.Next()
 	}
@@ -260,7 +259,7 @@ func main() {
 	// init database and controllers
 	db := InitDB()
 	orgController, orgRepo := InitOrganization(db)
-	eventController, _ := InitEvent(db)
+	eventController, eventRepo := InitEvent(db)
 	userController, userRepo := InitUser(db)
 	sessionRepo := InitSession(db)
 
@@ -282,14 +281,19 @@ func main() {
 			}
 			user := userAny.(*user.User)
 
-			orgIDAny, exists := ctx.Get("orgID")
-			if !exists {
+			org, err := orgRepo.GetByID(user.OrganizationID)
+			if err != nil {
 				ctx.AbortWithStatus(500)
 				return
 			}
-			orgID := orgIDAny.(int64)
 
-			ctx.HTML(200, "index.html", gin.H{"org_id": orgID, "User": user})
+			events, err := eventRepo.AllForOrganization(org.ID)
+			if err != nil {
+				ctx.AbortWithStatus(500)
+				return
+			}
+
+			ctx.HTML(200, "index.html", gin.H{"User": user, "Organization": org, "Events": events})
 		})
 	}
 
