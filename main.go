@@ -6,50 +6,48 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"strconv"
 
 	"github.com/gin-gonic/gin"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/slimnate/laser-beam/data/event"
 	"github.com/slimnate/laser-beam/data/organization"
+	"github.com/slimnate/laser-beam/data/session"
 	"github.com/slimnate/laser-beam/data/user"
+	"github.com/thanhpk/randstr"
 )
 
 const dbFile = "data.db"
 
-func AuthMiddleware() gin.HandlerFunc {
+func AuthMiddleware(sessionRepo *session.SQLiteRepository, userRepo *user.SQLiteRepository) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
-		isAuthorized := false
-		apiKey := ""
-
-		// check auth header
-		apiKeyHeader := ctx.GetHeader("X-API-Key")
-		if apiKeyHeader == "valid" {
-			apiKey = apiKeyHeader
-			isAuthorized = true
-		}
-
-		// check query params
-		apiKeyQuery, exists := ctx.GetQuery("key")
-		if exists && apiKeyQuery == "valid" {
-			apiKey = apiKeyQuery
-			isAuthorized = true
-		}
-
-		if !isAuthorized {
-			ctx.AbortWithStatusJSON(401, gin.H{"error": "unauthorized"})
+		sessionKey, err := ctx.Cookie("session_key")
+		if err != nil {
+			ctx.Redirect(302, "/login")
 			return
 		}
 
-		// set the api key in the query context
-		ctx.Set("apiKey", apiKey)
+		session, err := sessionRepo.GetByKey(sessionKey)
+		if err != nil {
+			ctx.Redirect(302, "/login")
+			return
+		}
+
+		user, err := userRepo.GetByID(session.UserID)
+		if err != nil {
+			ctx.AbortWithStatus(401)
+			return
+		}
+
+		// set the userID and orgID on the query context
+		ctx.Set("user", user)
+		ctx.Set("orgID", user.OrganizationID)
 
 		ctx.Next()
 	}
 }
 
 // Middleware to check for a valid auth key, and add the corresponding org id to the request context
-func OrgAuthMiddleware(orgRepo *organization.SQLiteRepository) gin.HandlerFunc {
+func ApiAuthMiddleware(orgRepo *organization.SQLiteRepository) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		key, exists := ctx.GetQuery("key")
 		if !exists {
@@ -232,12 +230,23 @@ func InitUser(db *sql.DB) (*user.UserController, *user.SQLiteRepository) {
 	return controller, repo
 }
 
+func InitSession(db *sql.DB) *session.SQLiteRepository {
+	repo := session.NewSQLiteRepository(db)
+
+	if err := repo.Migrate(); err != nil {
+		log.Fatal(err)
+	}
+
+	return repo
+}
+
 func main() {
 	// init database and controllers
 	db := InitDB()
 	orgController, orgRepo := InitOrganization(db)
 	eventController, _ := InitEvent(db)
-	userController, _ := InitUser(db)
+	userController, userRepo := InitUser(db)
+	sessionRepo := InitSession(db)
 
 	// init router
 	router := gin.Default()
@@ -245,71 +254,102 @@ func main() {
 	router.LoadHTMLGlob("templates/**/*.html")
 	router.Static("/static", "./static")
 
-	router.GET("/", func(ctx *gin.Context) {
-		orgIDCookie, err := ctx.Cookie("organization_id")
-		if err != nil {
-			ctx.Redirect(http.StatusFound, "/login")
-			return
-		}
-		orgID, err := strconv.ParseInt(orgIDCookie, 10, 64)
-		if err != nil {
-			ctx.Redirect(http.StatusFound, "/login")
-			return
-		}
+	// Website routes
+	authGroup := router.Group("")
+	authGroup.Use(AuthMiddleware(sessionRepo, userRepo))
+	{
+		authGroup.GET("/", func(ctx *gin.Context) {
+			userAny, exists := ctx.Get("user")
+			if !exists {
+				ctx.AbortWithStatus(500)
+				return
+			}
+			user := userAny.(*user.User)
 
-		ctx.HTML(200, "index.html", gin.H{"org_id": orgID})
-	})
+			orgIDAny, exists := ctx.Get("orgID")
+			if !exists {
+				ctx.AbortWithStatus(500)
+				return
+			}
+			orgID := orgIDAny.(int64)
+
+			ctx.HTML(200, "index.html", gin.H{"org_id": orgID, "User": user})
+		})
+	}
 
 	router.GET("/login", func(ctx *gin.Context) {
-		ctx.HTML(http.StatusFound, "login.html", nil)
+		ctx.HTML(http.StatusOK, "login.html", nil)
 	})
 
 	router.POST("/login", func(ctx *gin.Context) {
-		org_id, err := strconv.ParseInt(ctx.PostForm("organization_id"), 10, 64)
+		username := ctx.PostForm("username")
+		password := ctx.PostForm("password")
+
+		log.Println("Username: " + username)
+		log.Println("Password: " + password)
+
+		user, err := userRepo.GetByUsername(username)
 		if err != nil {
-			ctx.AbortWithStatusJSON(500, gin.H{"error": "invalid organization_id"})
+			log.Println("Invalid user")
+			log.Println(err.Error())
+			ctx.HTML(401, "login.html", gin.H{"Error": "Invalid username or password"})
+			return
 		}
-		log.Printf("Incoming login request: %d", org_id)
+
+		if user.Password != password {
+			log.Println("invalid pass")
+			ctx.HTML(401, "login.html", gin.H{"Error": "Invalid username or password"})
+			return
+		}
+
+		session_key := randstr.String(64)
+		session, err := sessionRepo.Create(session_key, user.ID)
+		if err != nil {
+			ctx.AbortWithStatusJSON(500, gin.H{"error": "unable to create user session"})
+		}
+
 		cookie := &http.Cookie{
-			Name:   "organization_id",
-			Value:  strconv.FormatInt(org_id, 10),
+			Name:   "session_key",
+			Value:  session.Key,
 			MaxAge: 0,
 		}
 		ctx.SetCookie(cookie.Name, cookie.Value, cookie.MaxAge, cookie.Path, cookie.Domain, cookie.Secure, cookie.HttpOnly)
+
 		ctx.Redirect(302, "/")
 	})
 
 	router.GET("/logout", func(ctx *gin.Context) {
-		orgIDCookie, err := ctx.Request.Cookie("organization_id")
+		sessionCookie, err := ctx.Request.Cookie("session_key")
 		if err != nil {
+			log.Println("No session cookie found when trying to log out")
 			ctx.Redirect(302, "/")
+			return
 		}
 
-		ctx.SetCookie(orgIDCookie.Name, orgIDCookie.Value, -1, orgIDCookie.Path, orgIDCookie.Domain, orgIDCookie.Secure, orgIDCookie.HttpOnly)
+		if err := sessionRepo.DeleteByKey(sessionCookie.Value); err != nil {
+			log.Println("Unable to delete session entry from db: " + err.Error())
+			ctx.Redirect(302, "/")
+			return
+		}
+
+		ctx.SetCookie(sessionCookie.Name, "", -1, sessionCookie.Path, sessionCookie.Domain, sessionCookie.Secure, sessionCookie.HttpOnly)
 		ctx.Redirect(302, "/")
 	})
 
 	router.GET("/org", orgController.List)
 
-	authGroup := router.Group("/api")
-	authGroup.Use(AuthMiddleware())
+	// API routes
+	apiAuthGroup := router.Group("/org/:id")
+	apiAuthGroup.Use(ApiAuthMiddleware(orgRepo))
 	{
-		authGroup.GET("/data", func(ctx *gin.Context) {
-			key, _ := ctx.Get("apiKey")
-			ctx.JSON(200, gin.H{"message": "Authenticated", "key": key})
-		})
-	}
+		apiAuthGroup.GET("/", orgController.Details)
 
-	orgAuthGroup := router.Group("/org/:id")
-	orgAuthGroup.Use(OrgAuthMiddleware(orgRepo))
-	{
-		orgAuthGroup.GET("/", orgController.Details)
-		orgAuthGroup.GET("/events", eventController.List)
-		orgAuthGroup.GET("/events/:event_id", eventController.Details)
-		orgAuthGroup.POST("/events", eventController.Create)
-		orgAuthGroup.PUT("/events/:event_id", eventController.Update)
+		apiAuthGroup.GET("/events", eventController.List)
+		apiAuthGroup.GET("/events/:event_id", eventController.Details)
+		apiAuthGroup.POST("/events", eventController.Create)
+		apiAuthGroup.PUT("/events/:event_id", eventController.Update)
 
-		orgAuthGroup.GET("/users", userController.List)
+		apiAuthGroup.GET("/users", userController.List)
 	}
 
 	router.Run(":8080")
