@@ -102,7 +102,7 @@ func (r *SQLiteRepository) GetByUsername(username string) (*UserSecret, error) {
 	row := r.db.QueryRow("SELECT id, username, password, first_name, last_name, admin_status, organization_id FROM users WHERE username = ?", username)
 
 	var u UserSecret
-	if err := row.Scan(&u.ID, &u.Username, u.Password, &u.FirstName, &u.LastName, &u.AdminStatus, &u.OrganizationID); err != nil {
+	if err := row.Scan(&u.ID, &u.Username, &u.Password, &u.FirstName, &u.LastName, &u.AdminStatus, &u.OrganizationID); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, data.ErrNotExists
 		}

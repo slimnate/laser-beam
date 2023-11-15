@@ -65,6 +65,7 @@ func (r *SQLiteRepository) Create(event Event, orgID int64) (*Event, error) {
 
 	event.ID = id
 	event.Time = t
+	event.OrganizationID = orgID
 
 	return &event, nil
 }
