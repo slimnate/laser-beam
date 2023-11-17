@@ -4,7 +4,7 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
-	"github.com/slimnate/laser-beam/data"
+	"github.com/slimnate/laser-beam/auth"
 )
 
 type EventController struct {
@@ -17,9 +17,24 @@ func NewEventController(repo *SQLiteRepository) *EventController {
 	}
 }
 
+func (c *EventController) ListGlobal(ctx *gin.Context) {
+	if !auth.IsAuthorizedForGlobal(ctx) {
+		ctx.AbortWithStatusJSON(401, gin.H{"error": "not authorized"})
+		return
+	}
+
+	events, err := c.repo.All()
+	if err != nil {
+		ctx.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx.JSON(200, events)
+}
+
 // Handler for /org/:id/events
 func (c *EventController) List(ctx *gin.Context) {
-	orgID, err := data.ValidateOrganizationID(ctx)
+	orgID, err := auth.GetAndAuthorizeOrgIDParam(ctx)
 	if err != nil {
 		ctx.AbortWithStatusJSON(401, gin.H{"error": err.Error()})
 		return
@@ -36,7 +51,7 @@ func (c *EventController) List(ctx *gin.Context) {
 }
 
 func (c *EventController) Details(ctx *gin.Context) {
-	orgID, err := data.ValidateOrganizationID(ctx)
+	orgID, err := auth.GetAndAuthorizeOrgIDParam(ctx)
 	if err != nil {
 		ctx.AbortWithStatusJSON(401, gin.H{"error": err.Error()})
 		return
@@ -58,7 +73,7 @@ func (c *EventController) Details(ctx *gin.Context) {
 }
 
 func (c *EventController) Create(ctx *gin.Context) {
-	orgID, err := data.ValidateOrganizationID(ctx)
+	orgID, err := auth.GetAndAuthorizeOrgIDParam(ctx)
 	if err != nil {
 		ctx.AbortWithStatusJSON(401, gin.H{"error": err.Error()})
 		return
@@ -81,7 +96,7 @@ func (c *EventController) Create(ctx *gin.Context) {
 
 func (c *EventController) Update(ctx *gin.Context) {
 	// validate org ID, but we don't need it for the request
-	_, err := data.ValidateOrganizationID(ctx)
+	_, err := auth.GetAndAuthorizeOrgIDParam(ctx)
 	if err != nil {
 		ctx.AbortWithStatusJSON(401, gin.H{"error": err.Error()})
 		return

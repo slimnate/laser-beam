@@ -11,8 +11,8 @@ import (
 	"github.com/slimnate/laser-beam/data/event"
 	"github.com/slimnate/laser-beam/data/organization"
 	"github.com/slimnate/laser-beam/data/session"
-	"github.com/slimnate/laser-beam/data/site"
 	"github.com/slimnate/laser-beam/data/user"
+	"github.com/slimnate/laser-beam/site"
 )
 
 const dbFile = "data.db"
@@ -75,8 +75,15 @@ func ApiAuthMiddleware(orgRepo *organization.SQLiteRepository) gin.HandlerFunc {
 			return
 		}
 
+		// Set flag for global authorization if org ID matches the global org
+		if org.ID == 1 {
+			ctx.Set("authorizedGlobal", true)
+		}
+
 		ctx.Set("apiKey", key)
 		ctx.Set("authorizedOrgID", org.ID)
+
+		ctx.Next()
 	}
 }
 
@@ -279,20 +286,30 @@ func main() {
 
 	router.GET("/login", siteController.RenderLogin)
 	router.POST("/login", siteController.ProcessLogin)
-	router.GET("/logout")
-
-	router.GET("/org", orgController.List)
+	router.GET("/logout", siteController.Logout)
 
 	// API routes
-	apiAuthGroup := router.Group("/org/:id")
+	apiAuthGroup := router.Group("/api")
 	apiAuthGroup.Use(ApiAuthMiddleware(orgRepo))
 	{
-		apiAuthGroup.GET("/", orgController.Details)
+		// Global auth only routes
+		apiAuthGroup.GET("/org", orgController.List)
+		apiAuthGroup.GET("/events", eventController.ListGlobal)
 
-		apiAuthGroup.GET("/events", eventController.List)
-		apiAuthGroup.GET("/events/:event_id", eventController.Details)
-		apiAuthGroup.POST("/events", eventController.Create)
-		apiAuthGroup.PUT("/events/:event_id", eventController.Update)
+		// org specific routes
+		orgGroup := apiAuthGroup.Group("/org/:org_id")
+		{
+			orgGroup.GET("/", orgController.Details)
+
+			// event specific routes
+			eventGroup := orgGroup.Group("/events")
+			{
+				eventGroup.GET("/", eventController.List)
+				eventGroup.GET("/:event_id", eventController.Details)
+				eventGroup.POST("/", eventController.Create)
+				eventGroup.PUT("/:event_id", eventController.Update)
+			}
+		}
 
 		apiAuthGroup.GET("/users", userController.List)
 	}

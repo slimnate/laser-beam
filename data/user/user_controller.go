@@ -2,7 +2,7 @@ package user
 
 import (
 	"github.com/gin-gonic/gin"
-	"github.com/slimnate/laser-beam/data"
+	"github.com/slimnate/laser-beam/auth"
 )
 
 type UserController struct {
@@ -16,7 +16,7 @@ func NewUserController(repo *SQLiteRepository) *UserController {
 }
 
 func (c *UserController) List(ctx *gin.Context) {
-	orgID, err := data.ValidateOrganizationID(ctx)
+	orgID, err := auth.GetAndAuthorizeOrgIDParam(ctx)
 	if err != nil {
 		ctx.AbortWithStatusJSON(401, gin.H{"error": err.Error()})
 		return

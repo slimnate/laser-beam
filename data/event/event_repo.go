@@ -70,6 +70,26 @@ func (r *SQLiteRepository) Create(event Event, orgID int64) (*Event, error) {
 	return &event, nil
 }
 
+func (r *SQLiteRepository) All() ([]Event, error) {
+	rows, err := r.db.Query("SELECT id, message, name, organization_id, time, type from events")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var all []Event
+	for rows.Next() {
+		var e Event
+		var timestamp int64
+		if err := rows.Scan(&e.ID, &e.Message, &e.Name, &e.OrganizationID, &timestamp, &e.Type); err != nil {
+			return nil, err
+		}
+		e.Time = time.Unix(timestamp, 0)
+		all = append(all, e)
+	}
+	return all, nil
+}
+
 func (r *SQLiteRepository) AllForOrganization(orgID int64) ([]Event, error) {
 	rows, err := r.db.Query("SELECT id, message, name, organization_id, time, type from events WHERE organization_id = ?", orgID)
 	if err != nil {
