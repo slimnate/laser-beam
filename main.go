@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
-	"net/http"
 	"os"
 
 	"github.com/gin-gonic/gin"
@@ -12,8 +11,8 @@ import (
 	"github.com/slimnate/laser-beam/data/event"
 	"github.com/slimnate/laser-beam/data/organization"
 	"github.com/slimnate/laser-beam/data/session"
+	"github.com/slimnate/laser-beam/data/site"
 	"github.com/slimnate/laser-beam/data/user"
-	"github.com/thanhpk/randstr"
 )
 
 const dbFile = "data.db"
@@ -262,10 +261,12 @@ func main() {
 	eventController, eventRepo := InitEvent(db)
 	userController, userRepo := InitUser(db)
 	sessionRepo := InitSession(db)
+	siteController := site.NewSiteController(orgRepo, eventRepo, userRepo, sessionRepo)
 
 	// init router
 	router := gin.Default()
 
+	// Load templates and static files
 	router.LoadHTMLGlob("templates/**/*.html")
 	router.Static("/static", "./static")
 
@@ -273,88 +274,12 @@ func main() {
 	authGroup := router.Group("")
 	authGroup.Use(AuthMiddleware(sessionRepo, userRepo))
 	{
-		authGroup.GET("/", func(ctx *gin.Context) {
-			userAny, exists := ctx.Get("user")
-			if !exists {
-				ctx.AbortWithStatus(500)
-				return
-			}
-			user := userAny.(*user.User)
-
-			org, err := orgRepo.GetByID(user.OrganizationID)
-			if err != nil {
-				ctx.AbortWithStatus(500)
-				return
-			}
-
-			events, err := eventRepo.AllForOrganization(org.ID)
-			if err != nil {
-				ctx.AbortWithStatus(500)
-				return
-			}
-
-			ctx.HTML(200, "index.html", gin.H{"User": user, "Organization": org, "Events": events})
-		})
+		authGroup.GET("/", siteController.Index)
 	}
 
-	router.GET("/login", func(ctx *gin.Context) {
-		ctx.HTML(http.StatusOK, "login.html", nil)
-	})
-
-	router.POST("/login", func(ctx *gin.Context) {
-		username := ctx.PostForm("username")
-		password := ctx.PostForm("password")
-
-		log.Println("Username: " + username)
-		log.Println("Password: " + password)
-
-		user, err := userRepo.GetByUsername(username)
-		if err != nil {
-			log.Println("Invalid user")
-			log.Println(err.Error())
-			ctx.HTML(401, "login.html", gin.H{"Error": "Invalid username or password"})
-			return
-		}
-
-		if user.Password != password {
-			log.Println("invalid pass")
-			ctx.HTML(401, "login.html", gin.H{"Error": "Invalid username or password"})
-			return
-		}
-
-		session_key := randstr.String(64)
-		session, err := sessionRepo.Create(session_key, user.ID)
-		if err != nil {
-			ctx.AbortWithStatusJSON(500, gin.H{"error": "unable to create user session"})
-		}
-
-		cookie := &http.Cookie{
-			Name:   "session_key",
-			Value:  session.Key,
-			MaxAge: 0,
-		}
-		ctx.SetCookie(cookie.Name, cookie.Value, cookie.MaxAge, cookie.Path, cookie.Domain, cookie.Secure, cookie.HttpOnly)
-
-		ctx.Redirect(302, "/")
-	})
-
-	router.GET("/logout", func(ctx *gin.Context) {
-		sessionCookie, err := ctx.Request.Cookie("session_key")
-		if err != nil {
-			log.Println("No session cookie found when trying to log out")
-			ctx.Redirect(302, "/")
-			return
-		}
-
-		if err := sessionRepo.DeleteByKey(sessionCookie.Value); err != nil {
-			log.Println("Unable to delete session entry from db: " + err.Error())
-			ctx.Redirect(302, "/")
-			return
-		}
-
-		ctx.SetCookie(sessionCookie.Name, "", -1, sessionCookie.Path, sessionCookie.Domain, sessionCookie.Secure, sessionCookie.HttpOnly)
-		ctx.Redirect(302, "/")
-	})
+	router.GET("/login", siteController.RenderLogin)
+	router.POST("/login", siteController.ProcessLogin)
+	router.GET("/logout")
 
 	router.GET("/org", orgController.List)
 
