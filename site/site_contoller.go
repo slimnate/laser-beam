@@ -1,6 +1,7 @@
 package site
 
 import (
+	"errors"
 	"log"
 	"net/http"
 
@@ -28,15 +29,23 @@ func NewSiteController(orgRepo *organization.SQLiteRepository, eventRepo *event.
 	}
 }
 
-func (s *SiteController) Index(ctx *gin.Context) {
+func (s *SiteController) GetUserOrg(ctx *gin.Context) (u *user.User, o *organization.Organization, err error) {
 	userAny, exists := ctx.Get("user")
 	if !exists {
-		ctx.AbortWithStatus(500)
-		return
+		return nil, nil, errors.New("no user found on request")
 	}
 	user := userAny.(*user.User)
 
 	org, err := s.orgRepo.GetByID(user.OrganizationID)
+	if err != nil {
+		return nil, nil, errors.New("unable to get org")
+	}
+
+	return user, org, nil
+}
+
+func (s *SiteController) Index(ctx *gin.Context) {
+	user, org, err := s.GetUserOrg(ctx)
 	if err != nil {
 		ctx.AbortWithStatus(500)
 		return
@@ -108,4 +117,14 @@ func (s *SiteController) Logout(ctx *gin.Context) {
 
 	ctx.SetCookie(sessionCookie.Name, "", -1, sessionCookie.Path, sessionCookie.Domain, sessionCookie.Secure, sessionCookie.HttpOnly)
 	ctx.Redirect(302, "/")
+}
+
+func (s *SiteController) RenderAccount(ctx *gin.Context) {
+	user, org, err := s.GetUserOrg(ctx)
+	if err != nil {
+		ctx.AbortWithStatus(500)
+		return
+	}
+
+	ctx.HTML(200, "user.html", gin.H{"User": user, "Organization": org})
 }

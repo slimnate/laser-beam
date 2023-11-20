@@ -282,6 +282,7 @@ func main() {
 	authGroup.Use(AuthMiddleware(sessionRepo, userRepo))
 	{
 		authGroup.GET("/", siteController.Index)
+		authGroup.GET("/account", siteController.RenderAccount)
 	}
 
 	router.GET("/login", siteController.RenderLogin)

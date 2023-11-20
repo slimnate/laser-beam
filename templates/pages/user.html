@@ -1,0 +1,74 @@
+<html lang="en">
+  {{ template "head.html" }}
+  <body>
+    {{ template "navbar.html" . }}
+
+    <main class="mx-12 mt-4 h-screen">
+      <div class="mb-8 text-3xl">Welcome, {{ .User.FullName }}</div>
+
+      <div class="flex w-full flex-col justify-center">
+        <!-- Username -->
+        <div class="flex basis-5/6 flex-row items-center pb-2.5">
+          <label for="username" class="flex basis-1/3 justify-end p-2.5"
+            >Username:
+          </label>
+          <input
+            type="text"
+            name="username"
+            id="username"
+            class="basis-2/3 rounded-md border p-2.5 focus:border-blue-500 focus-visible:!outline-0"
+            value="{{ .User.Username }}"
+            disabled
+          />
+        </div>
+
+        <!-- First Name -->
+        <div class="flex basis-5/6 flex-row items-center pb-2.5">
+          <label for="first_name" class="flex basis-1/3 justify-end p-2.5"
+            >First Name:
+          </label>
+          <input
+            type="text"
+            name="first_name"
+            id="first_name"
+            class="basis-2/3 rounded-md border p-2.5 focus:border-blue-500 focus-visible:!outline-0"
+            value="{{ .User.FirstName }}"
+            disabled
+          />
+        </div>
+
+        <!-- Last Name -->
+        <div class="flex basis-5/6 flex-row items-center pb-2.5">
+          <label for="last_name" class="flex basis-1/3 justify-end p-2.5"
+            >Last Name:
+          </label>
+          <input
+            type="text"
+            name="last_name"
+            id="last_name"
+            class="basis-2/3 rounded-md border p-2.5 focus:border-blue-500 focus-visible:!outline-0"
+            value="{{ .User.LastName }}"
+            disabled
+          />
+        </div>
+
+        <!-- User Type -->
+        <div class="flex basis-5/6 flex-row items-center pb-2.5">
+          <label for="admin_status" class="flex basis-1/3 justify-end p-2.5"
+            >User Type:
+          </label>
+          <input
+            type="text"
+            name="admin_status"
+            id="admin_status"
+            class="basis-2/3 rounded-md border p-2.5 focus:border-blue-500 focus-visible:!outline-0"
+            value="{{ .User.AdminStatusString }}"
+            disabled
+          />
+        </div>
+      </div>
+    </main>
+
+    {{ template "footer.html" }}
+  </body>
+</html>
