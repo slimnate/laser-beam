@@ -12,6 +12,7 @@ import (
 	"github.com/slimnate/laser-beam/data/organization"
 	"github.com/slimnate/laser-beam/data/session"
 	"github.com/slimnate/laser-beam/data/user"
+	"github.com/slimnate/laser-beam/middleware"
 	"github.com/slimnate/laser-beam/site"
 )
 
@@ -279,7 +280,7 @@ func main() {
 
 	// Website routes
 	authGroup := router.Group("")
-	authGroup.Use(AuthMiddleware(sessionRepo, userRepo))
+	authGroup.Use(AuthMiddleware(sessionRepo, userRepo), middleware.HTMXMiddleware())
 	{
 		authGroup.GET("/", siteController.Index)
 		authGroup.GET("/account", siteController.RenderAccount)
