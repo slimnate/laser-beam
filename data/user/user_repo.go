@@ -115,7 +115,7 @@ func (r *SQLiteRepository) UpdateUserInfo(id int64, new User) (*User, error) {
 	if id == 0 {
 		return nil, errors.New("invalid ID to update")
 	}
-	query := "UPDATE events SET first_name = ?, last_name = ? WHERE id = ?"
+	query := "UPDATE users SET first_name = ?, last_name = ? WHERE id = ?"
 	res, err := r.db.Exec(query, new.FirstName, new.LastName, id)
 
 	if err != nil {
@@ -143,7 +143,7 @@ func (r *SQLiteRepository) UpdateLoginInfo(id int64, new UserSecret) (*User, err
 	if id == 0 {
 		return nil, errors.New("invalid ID to update")
 	}
-	query := "UPDATE events SET username = ?, password = ? WHERE id = ?"
+	query := "UPDATE users SET username = ?, password = ? WHERE id = ?"
 	res, err := r.db.Exec(query, new.Username, new.Password, id)
 
 	if err != nil {
@@ -168,7 +168,7 @@ func (r *SQLiteRepository) UpdateLoginInfo(id int64, new UserSecret) (*User, err
 }
 
 func (r *SQLiteRepository) Delete(id int64) error {
-	res, err := r.db.Exec("DELETE FROM events WHERE id = ?", id)
+	res, err := r.db.Exec("DELETE FROM users WHERE id = ?", id)
 	if err != nil {
 		return err
 	}

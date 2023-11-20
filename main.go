@@ -283,6 +283,9 @@ func main() {
 	{
 		authGroup.GET("/", siteController.Index)
 		authGroup.GET("/account", siteController.RenderAccount)
+		authGroup.GET("/user", userController.RenderUser)
+		authGroup.GET("/user/edit", userController.RenderUserForm)
+		authGroup.PUT("/user", userController.UpdateUser)
 	}
 
 	router.GET("/login", siteController.RenderLogin)
