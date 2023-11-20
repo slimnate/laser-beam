@@ -3,10 +3,8 @@
   <body>
     {{ template "navbar.html" . }}
 
-    <main class="mx-12 mt-4 h-screen">
-      <div class="mb-8 text-3xl">Welcome, {{ .User.FullName }}</div>
-
-      {{ template "events_table.html" .Events }}
+    <main class="mx-12 mt-4 h-screen" id="content">
+      {{ template "dashboard.html" . }}
     </main>
 
     {{ template "footer.html" }}
