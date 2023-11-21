@@ -17,76 +17,6 @@ import (
 )
 
 const dbFile = "data.db"
-const autoLogin = true
-const autoLoginUser = "admin2"
-
-func AuthMiddleware(sessionRepo *session.SQLiteRepository, userRepo *user.SQLiteRepository) gin.HandlerFunc {
-	// if auto-login is enabled, we skip checking for any session keys
-	// and approve the request as if the `autoLoginUser` is already logged in
-	if autoLogin {
-		return func(ctx *gin.Context) {
-			user, err := userRepo.GetByUsername(autoLoginUser)
-			if err != nil {
-				ctx.AbortWithStatusJSON(500, gin.H{"error": "Error on auto-login, user not found"})
-				return
-			}
-
-			ctx.Set("user", &user.User)
-		}
-	}
-
-	return func(ctx *gin.Context) {
-		sessionKey, err := ctx.Cookie("session_key")
-		if err != nil {
-			ctx.Redirect(302, "/login")
-			return
-		}
-
-		session, err := sessionRepo.GetByKey(sessionKey)
-		if err != nil {
-			ctx.Redirect(302, "/login")
-			return
-		}
-
-		user, err := userRepo.GetByID(session.UserID)
-		if err != nil {
-			ctx.AbortWithStatus(401)
-			return
-		}
-
-		// set the userID and orgID on the query context
-		ctx.Set("user", user)
-
-		ctx.Next()
-	}
-}
-
-// Middleware to check for a valid auth key, and add the corresponding org id to the request context
-func ApiAuthMiddleware(orgRepo *organization.SQLiteRepository) gin.HandlerFunc {
-	return func(ctx *gin.Context) {
-		key, exists := ctx.GetQuery("key")
-		if !exists {
-			ctx.AbortWithStatusJSON(401, gin.H{"error": "no api key supplied"})
-			return
-		}
-
-		org, err := orgRepo.GetByKey(key)
-		if err != nil {
-			ctx.AbortWithStatusJSON(401, gin.H{"error": "invalid api key"})
-			return
-		}
-
-		// Set flag for global authorization if org ID matches the global org
-		if org.ID == 1 {
-			ctx.Set("authorizedGlobal", true)
-		}
-
-		ctx.Set("apiKey", key)
-		ctx.Set("authorizedOrgID", org.ID)
-
-		ctx.Next()
-	}
-}
 
 func InitDB() *sql.DB {
 	// remove existing db
@@ -280,7 +210,7 @@ func main() {
 
 	// Website routes
 	authGroup := router.Group("")
-	authGroup.Use(AuthMiddleware(sessionRepo, userRepo), middleware.HTMXMiddleware())
+	authGroup.Use(middleware.AuthMiddleware(sessionRepo, userRepo), middleware.HTMXMiddleware())
 	{
 		authGroup.GET("/", siteController.Index)
 		authGroup.GET("/account", siteController.RenderAccount)
@@ -296,7 +226,7 @@ func main() {
 
 	// API routes
 	apiAuthGroup := router.Group("/api")
-	apiAuthGroup.Use(ApiAuthMiddleware(orgRepo))
+	apiAuthGroup.Use(middleware.ApiAuthMiddleware(orgRepo))
 	{
 		// Global auth only routes
 		apiAuthGroup.GET("/org", orgController.List)
