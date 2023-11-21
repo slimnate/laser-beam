@@ -10,6 +10,7 @@ import (
 	"github.com/slimnate/laser-beam/data/organization"
 	"github.com/slimnate/laser-beam/data/session"
 	"github.com/slimnate/laser-beam/data/user"
+	"github.com/slimnate/laser-beam/middleware"
 	"github.com/thanhpk/randstr"
 )
 
@@ -27,6 +28,13 @@ func NewSiteController(orgRepo *organization.SQLiteRepository, eventRepo *event.
 		userRepo:    userRepo,
 		sessionRepo: sessionRepo,
 	}
+}
+
+func GetHxHeaders(ctx *gin.Context) *middleware.HTMXHeaders {
+	hxHeaders, _ := ctx.Get("hx")
+	hx := hxHeaders.(*middleware.HTMXHeaders)
+
+	return hx
 }
 
 func (s *SiteController) GetUserOrg(ctx *gin.Context) (u *user.User, o *organization.Organization, err error) {
@@ -57,7 +65,13 @@ func (s *SiteController) Index(ctx *gin.Context) {
 		return
 	}
 
-	ctx.HTML(200, "index.html", gin.H{"User": user, "Organization": org, "Events": events})
+	hx := GetHxHeaders(ctx)
+
+	if hx.Request {
+		ctx.HTML(200, "dashboard.html", gin.H{"User": user, "Organization": org, "Events": events})
+	} else {
+		ctx.HTML(200, "index.html", gin.H{"User": user, "Organization": org, "Events": events, "Route": "/"})
+	}
 }
 
 func (s *SiteController) RenderLogin(ctx *gin.Context) {
@@ -126,5 +140,90 @@ func (s *SiteController) RenderAccount(ctx *gin.Context) {
 		return
 	}
 
-	ctx.HTML(200, "user.html", gin.H{"User": user, "Organization": org})
+	hx := GetHxHeaders(ctx)
+	if hx.Request {
+		ctx.HTML(200, "user_display.html", user)
+	} else {
+		ctx.HTML(200, "index.html", gin.H{"User": user, "Organization": org, "Route": "/account"})
+	}
+}
+
+func (s *SiteController) RenderUserForm(ctx *gin.Context) {
+	user, org, err := s.GetUserOrg(ctx)
+	if err != nil {
+		ctx.AbortWithStatus(500)
+		return
+	}
+
+	hx := GetHxHeaders(ctx)
+	if hx.Request {
+		ctx.HTML(200, "user_form.html", user)
+	} else {
+		ctx.HTML(200, "index.html", gin.H{"User": user, "Organization": org, "Route": "/account/edit"})
+	}
+}
+
+func (s *SiteController) UpdateUser(ctx *gin.Context) {
+	newFirstName := ctx.PostForm("first_name")
+	newLastName := ctx.PostForm("last_name")
+
+	user, _, err := s.GetUserOrg(ctx)
+	if err != nil {
+		ctx.AbortWithStatus(500)
+		return
+	}
+
+	user.FirstName = newFirstName
+	user.LastName = newLastName
+
+	newUser, err := s.userRepo.UpdateUserInfo(user.ID, *user)
+	if err != nil {
+		log.Println(err.Error())
+		ctx.AbortWithStatus(500)
+		return
+	}
+
+	ctx.HTML(200, "user_display.html", newUser)
+}
+
+func (s *SiteController) RenderPasswordForm(ctx *gin.Context) {
+	user, org, err := s.GetUserOrg(ctx)
+	if err != nil {
+		ctx.AbortWithStatus(500)
+		return
+	}
+
+	hx := GetHxHeaders(ctx)
+	if hx.Request {
+		ctx.HTML(200, "user_password.html", user)
+	} else {
+		ctx.HTML(200, "index.html", gin.H{"User": user, "Organization": org, "Route": "/account/password"})
+	}
+}
+
+func (s *SiteController) UpdatePassword(ctx *gin.Context) {
+	newPassword := ctx.PostForm("password")
+	confirmPassword := ctx.PostForm("confirm_password")
+	if newPassword != confirmPassword {
+		ctx.AbortWithStatusJSON(500, gin.H{"Error": "Passwords must match"})
+	}
+
+	u, _, err := s.GetUserOrg(ctx)
+	if err != nil {
+		ctx.AbortWithStatus(500)
+		return
+	}
+	userSecret := &user.UserSecret{
+		User:     *u,
+		Password: newPassword,
+	}
+
+	newUser, err := s.userRepo.UpdateLoginInfo(u.ID, *userSecret)
+	if err != nil {
+		log.Println(err.Error())
+		ctx.AbortWithStatus(500)
+		return
+	}
+
+	ctx.HTML(200, "user_display.html", newUser)
 }

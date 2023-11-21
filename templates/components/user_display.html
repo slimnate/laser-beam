@@ -1,71 +1,85 @@
-<!-- Username -->
-<div class="flex flex-row items-center pb-2.5">
-  <label for="username" class="flex basis-32 justify-end p-2.5"
-    >Username:
-  </label>
-  <input
-    type="text"
-    name="username"
-    id="username"
-    class="flex-grow border-0 p-2.5 focus:border-blue-500 focus-visible:!outline-0"
-    value="{{ .Username }}"
-    disabled
-  />
-</div>
+<div class="mb-8 text-3xl">Account - {{ .FullName }}</div>
 
-<!-- First Name -->
-<div class="flex flex-row items-center pb-2.5">
-  <label for="first_name" class="flex basis-32 justify-end p-2.5"
-    >First Name:
-  </label>
-  <input
-    type="text"
-    name="first_name"
-    id="first_name"
-    class="flex-grow border-0 p-2.5 focus:border-blue-500 focus-visible:!outline-0"
-    value="{{ .FirstName }}"
-    disabled
-  />
-</div>
+<div class="mr-16 flex flex-grow flex-col justify-center">
+  <!-- Username -->
+  <div class="flex flex-row items-center pb-2.5">
+    <label for="username" class="flex basis-32 justify-end p-2.5"
+      >Username:
+    </label>
+    <input
+      type="text"
+      name="username"
+      id="username"
+      class="flex-grow border-0 p-2.5 focus:border-blue-500 focus-visible:!outline-0"
+      value="{{ .Username }}"
+      disabled
+    />
+  </div>
 
-<!-- Last Name -->
-<div class="flex flex-row items-center pb-2.5">
-  <label for="last_name" class="flex basis-32 justify-end p-2.5"
-    >Last Name:
-  </label>
-  <input
-    type="text"
-    name="last_name"
-    id="last_name"
-    class="flex-grow border-0 p-2.5 focus:border-blue-500 focus-visible:!outline-0"
-    value="{{ .LastName }}"
-    disabled
-  />
-</div>
+  <!-- First Name -->
+  <div class="flex flex-row items-center pb-2.5">
+    <label for="first_name" class="flex basis-32 justify-end p-2.5"
+      >First Name:
+    </label>
+    <input
+      type="text"
+      name="first_name"
+      id="first_name"
+      class="flex-grow border-0 p-2.5 focus:border-blue-500 focus-visible:!outline-0"
+      value="{{ .FirstName }}"
+      disabled
+    />
+  </div>
 
-<!-- User Type -->
-<div class="flex flex-row items-center pb-2.5">
-  <label for="admin_status" class="flex basis-32 justify-end p-2.5"
-    >User Type:
-  </label>
-  <input
-    type="text"
-    name="admin_status"
-    id="admin_status"
-    class="flex-grow border-0 p-2.5 focus:border-blue-500 focus-visible:!outline-0"
-    value="{{ .AdminStatusString }}"
-    disabled
-  />
-</div>
+  <!-- Last Name -->
+  <div class="flex flex-row items-center pb-2.5">
+    <label for="last_name" class="flex basis-32 justify-end p-2.5"
+      >Last Name:
+    </label>
+    <input
+      type="text"
+      name="last_name"
+      id="last_name"
+      class="flex-grow border-0 p-2.5 focus:border-blue-500 focus-visible:!outline-0"
+      value="{{ .LastName }}"
+      disabled
+    />
+  </div>
 
-<!-- Submit button -->
-<div class="flex w-full justify-end">
-  <button
-    hx-get="/user/edit"
-    hx-target="#form-content"
-    type="submit"
-    class="rounded-md border border-green-800 bg-green-500 p-2.5 px-4 font-semibold"
-  >
-    Edit
-  </button>
+  <!-- User Type -->
+  <div class="flex flex-row items-center pb-2.5">
+    <label for="admin_status" class="flex basis-32 justify-end p-2.5"
+      >User Type:
+    </label>
+    <input
+      type="text"
+      name="admin_status"
+      id="admin_status"
+      class="flex-grow border-0 p-2.5 focus:border-blue-500 focus-visible:!outline-0"
+      value="{{ .AdminStatusString }}"
+      disabled
+    />
+  </div>
+
+  <!-- Submit button -->
+  <div class="flex w-full justify-end space-x-2.5">
+    <button
+      hx-get="/account/password"
+      hx-target="#content"
+      hx-push-url="true"
+      type="submit"
+      class="rounded-md border border-green-800 bg-green-500 p-2.5 px-4 font-semibold"
+    >
+      Change Password
+    </button>
+    <button
+      hx-get="/account/edit"
+      hx-target="#content"
+      hx-push-url="true"
+      type="submit"
+      class="rounded-md border border-green-800 bg-green-500 p-2.5 px-4 font-semibold"
+    >
+      Edit
+    </button>
+  </div>
 </div>

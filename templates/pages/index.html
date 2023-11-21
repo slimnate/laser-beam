@@ -4,7 +4,11 @@
     {{ template "navbar.html" . }}
 
     <main class="mx-12 mt-4 h-screen" id="content">
-      {{ template "dashboard.html" . }}
+      {{ if eq .Route "/" }} {{ template "dashboard.html" .}} {{ end }} {{ if eq
+      .Route "/account" }} {{ template "user_display.html" .User }} {{end}} {{
+      if eq .Route "/account/edit" }} {{ template "user_form.html" .User }}
+      {{end}} {{ if eq .Route "/account/password" }} {{ template
+      "user_password.html" .User }} {{end}}
     </main>
 
     {{ template "footer.html" }}
