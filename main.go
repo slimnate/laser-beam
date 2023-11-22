@@ -8,6 +8,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	_ "github.com/mattn/go-sqlite3"
+	"github.com/slimnate/laser-beam/crypto"
 	"github.com/slimnate/laser-beam/data/event"
 	"github.com/slimnate/laser-beam/data/organization"
 	"github.com/slimnate/laser-beam/data/session"
@@ -172,6 +173,13 @@ func InitUser(db *sql.DB) (*user.UserController, *user.SQLiteRepository) {
 	}
 
 	for _, user := range users {
+		//Hash user password before storing
+		hashed, err := crypto.HashPassword(user.Password)
+		if err != nil {
+			log.Fatal("Unable to hash password: " + err.Error())
+		}
+		user.Password = hashed
+
 		created, err := repo.Create(user)
 		if err != nil {
 			log.Fatal(err)
