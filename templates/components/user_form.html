@@ -47,6 +47,12 @@
 
     <!-- Button group -->
     <div class="flex w-full justify-end space-x-2.5">
+      <img
+        src="/static/img/puff.svg"
+        alt="Loading Indicator"
+        class="htmx-indicator"
+        id="indicator"
+      />
       <button
         hx-get="/account"
         hx-target="#content"
@@ -60,6 +66,7 @@
         hx-put="/account"
         hx-target="#content"
         hx-push-url="true"
+        hx-indicator="#indicator"
         type="submit"
         class="rounded-md border border-blue-800 bg-blue-500 p-2.5 px-4 font-semibold"
       >
