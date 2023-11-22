@@ -1,7 +1,7 @@
 <div class="mb-8 text-3xl">Edit Account</div>
 
 <div class="mr-16 flex flex-grow flex-col justify-center">
-  <form>
+  <form action="/account" method="POST">
     <!-- Username -->
     <div class="flex flex-row items-center pb-2.5">
       <label for="username" class="flex basis-32 justify-end p-2.5"
@@ -45,7 +45,7 @@
       />
     </div>
 
-    <!-- Button group -->
+    <!-- Action buttons -->
     <div class="flex w-full justify-end space-x-2.5">
       <img
         src="/static/img/puff.svg"
@@ -53,14 +53,19 @@
         class="htmx-indicator"
         id="indicator"
       />
-      <button
+      <a
+        href="/account"
         hx-get="/account"
         hx-target="#content"
         hx-push-url="true"
-        class="rounded-md border border-red-800 bg-red-500 p-2.5 px-4 font-semibold"
       >
-        Cancel
-      </button>
+        <button
+          class="rounded-md border border-red-800 bg-red-500 p-2.5 px-4 font-semibold"
+          type="button"
+        >
+          Cancel
+        </button></a
+      >
       <button
         hx-put="/account"
         hx-target="#content"

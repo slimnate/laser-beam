@@ -174,7 +174,7 @@ func (s *SiteController) UpdateUser(ctx *gin.Context) {
 	newFirstName := ctx.PostForm("first_name")
 	newLastName := ctx.PostForm("last_name")
 
-	user, _, err := s.GetUserOrg(ctx)
+	user, org, err := s.GetUserOrg(ctx)
 	if err != nil {
 		ctx.AbortWithStatus(500)
 		return
@@ -190,7 +190,12 @@ func (s *SiteController) UpdateUser(ctx *gin.Context) {
 		return
 	}
 
-	ctx.HTML(200, "user_display.html", newUser)
+	hx := middleware.GetHxHeaders(ctx)
+	if hx.Request {
+		ctx.HTML(200, "user_display.html", newUser)
+	} else {
+		ctx.HTML(200, "index.html", gin.H{"User": newUser, "Organization": org, "Route": "/account"})
+	}
 }
 
 func (s *SiteController) RenderPasswordForm(ctx *gin.Context) {
@@ -216,7 +221,7 @@ func (s *SiteController) UpdatePassword(ctx *gin.Context) {
 		return
 	}
 
-	u, _, err := s.GetUserOrg(ctx)
+	u, org, err := s.GetUserOrg(ctx)
 	if err != nil {
 		ctx.AbortWithStatus(500)
 		return
@@ -240,5 +245,10 @@ func (s *SiteController) UpdatePassword(ctx *gin.Context) {
 		return
 	}
 
-	ctx.HTML(200, "user_display.html", newUser)
+	hx := middleware.GetHxHeaders(ctx)
+	if hx.Request {
+		ctx.HTML(200, "user_display.html", newUser)
+	} else {
+		ctx.HTML(200, "index.html", gin.H{"User": newUser, "Organization": org, "Route": "/account"})
+	}
 }

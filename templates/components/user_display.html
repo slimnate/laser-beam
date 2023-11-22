@@ -61,25 +61,34 @@
     />
   </div>
 
-  <!-- Submit button -->
+  <!-- Action buttons -->
   <div class="flex w-full justify-end space-x-2.5">
-    <button
+    <a
+      href="/account/password"
       hx-get="/account/password"
       hx-target="#content"
       hx-push-url="true"
-      type="submit"
-      class="rounded-md border border-green-800 bg-green-500 p-2.5 px-4 font-semibold"
+      ><button
+        type="submit"
+        class="rounded-md border border-green-800 bg-green-500 p-2.5 px-4 font-semibold"
+      >
+        Change Password
+      </button></a
     >
-      Change Password
-    </button>
-    <button
+    <a
+      href="/account/edit"
       hx-get="/account/edit"
       hx-target="#content"
       hx-push-url="true"
-      type="submit"
-      class="rounded-md border border-green-800 bg-green-500 p-2.5 px-4 font-semibold"
+      ><button
+        hx-get="/account/edit"
+        hx-target="#content"
+        hx-push-url="true"
+        type="submit"
+        class="rounded-md border border-green-800 bg-green-500 p-2.5 px-4 font-semibold"
+      >
+        Edit
+      </button></a
     >
-      Edit
-    </button>
   </div>
 </div>
