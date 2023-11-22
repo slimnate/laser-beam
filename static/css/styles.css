@@ -560,6 +560,10 @@ video {
   margin-right: auto;
 }
 
+.mb-0 {
+  margin-bottom: 0px;
+}
+
 .mb-2 {
   margin-bottom: 0.5rem;
 }
@@ -840,8 +844,8 @@ video {
   padding-top: 0.5rem;
 }
 
-.pt-2\.5 {
-  padding-top: 0.625rem;
+.pt-5 {
+  padding-top: 1.25rem;
 }
 
 .text-left {

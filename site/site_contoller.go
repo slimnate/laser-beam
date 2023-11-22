@@ -87,20 +87,21 @@ func (s *SiteController) ProcessLogin(ctx *gin.Context) {
 	if err != nil {
 		log.Println("Invalid user")
 		log.Println(err.Error())
-		ctx.HTML(401, "login.html", gin.H{"Error": "Invalid username or password"})
+		ctx.HTML(200, "login_form.html", gin.H{"Error": "Invalid username or password"})
 		return
 	}
 
 	if !crypto.TestMatch(password, user.Password) {
 		log.Println("invalid pass")
-		ctx.HTML(401, "login.html", gin.H{"Error": "Invalid username or password"})
+		ctx.HTML(401, "login_form.html", gin.H{"Error": "Invalid username or password"})
 		return
 	}
 
 	session_key := randstr.String(64)
 	session, err := s.sessionRepo.Create(session_key, user.ID)
 	if err != nil {
-		ctx.AbortWithStatusJSON(500, gin.H{"error": "unable to create user session"})
+		ctx.AbortWithStatusJSON(500, gin.H{"Error": "unable to create user session"})
+		return
 	}
 
 	cookie := &http.Cookie{
