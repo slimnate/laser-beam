@@ -47,3 +47,8 @@ func HTMXMiddleware() gin.HandlerFunc {
 		ctx.Next()
 	}
 }
+
+func GetHxHeaders(ctx *gin.Context) *HTMXHeaders {
+	hxHeaders, _ := ctx.Get("hx")
+	return hxHeaders.(*HTMXHeaders)
+}

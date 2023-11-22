@@ -31,13 +31,6 @@ func NewSiteController(orgRepo *organization.SQLiteRepository, eventRepo *event.
 	}
 }
 
-func GetHxHeaders(ctx *gin.Context) *middleware.HTMXHeaders {
-	hxHeaders, _ := ctx.Get("hx")
-	hx := hxHeaders.(*middleware.HTMXHeaders)
-
-	return hx
-}
-
 func (s *SiteController) GetUserOrg(ctx *gin.Context) (u *user.User, o *organization.Organization, err error) {
 	userAny, exists := ctx.Get("user")
 	if !exists {
@@ -66,7 +59,7 @@ func (s *SiteController) Index(ctx *gin.Context) {
 		return
 	}
 
-	hx := GetHxHeaders(ctx)
+	hx := middleware.GetHxHeaders(ctx)
 
 	if hx.Request {
 		ctx.HTML(200, "dashboard.html", gin.H{"User": user, "Organization": org, "Events": events})
@@ -80,6 +73,8 @@ func (s *SiteController) RenderLogin(ctx *gin.Context) {
 }
 
 func (s *SiteController) ProcessLogin(ctx *gin.Context) {
+	hx := middleware.GetHxHeaders(ctx)
+
 	username := ctx.PostForm("username")
 	password := ctx.PostForm("password")
 
@@ -87,13 +82,21 @@ func (s *SiteController) ProcessLogin(ctx *gin.Context) {
 	if err != nil {
 		log.Println("Invalid user")
 		log.Println(err.Error())
-		ctx.HTML(200, "login_form.html", gin.H{"Error": "Invalid username or password"})
+		if hx.Request {
+			ctx.HTML(200, "login_form.html", gin.H{"Error": "Invalid username or password", "Username": username})
+		} else {
+			ctx.HTML(401, "login.html", gin.H{"Error": "Invalid username or password", "Username": username})
+		}
 		return
 	}
 
 	if !crypto.TestMatch(password, user.Password) {
 		log.Println("invalid pass")
-		ctx.HTML(401, "login_form.html", gin.H{"Error": "Invalid username or password"})
+		if hx.Request {
+			ctx.HTML(200, "login_form.html", gin.H{"Error": "Invalid username or password", "Username": username})
+		} else {
+			ctx.HTML(401, "login.html", gin.H{"Error": "Invalid username or password", "Username": username})
+		}
 		return
 	}
 
@@ -111,7 +114,12 @@ func (s *SiteController) ProcessLogin(ctx *gin.Context) {
 	}
 	ctx.SetCookie(cookie.Name, cookie.Value, cookie.MaxAge, cookie.Path, cookie.Domain, cookie.Secure, cookie.HttpOnly)
 
-	ctx.Redirect(302, "/")
+	if hx.Request {
+		ctx.Header("HX-Redirect", "/")
+		ctx.AbortWithStatus(200)
+	} else {
+		ctx.Redirect(302, "/")
+	}
 }
 
 func (s *SiteController) Logout(ctx *gin.Context) {
@@ -139,7 +147,7 @@ func (s *SiteController) RenderAccount(ctx *gin.Context) {
 		return
 	}
 
-	hx := GetHxHeaders(ctx)
+	hx := middleware.GetHxHeaders(ctx)
 	if hx.Request {
 		ctx.HTML(200, "user_display.html", user)
 	} else {
@@ -154,7 +162,7 @@ func (s *SiteController) RenderUserForm(ctx *gin.Context) {
 		return
 	}
 
-	hx := GetHxHeaders(ctx)
+	hx := middleware.GetHxHeaders(ctx)
 	if hx.Request {
 		ctx.HTML(200, "user_form.html", user)
 	} else {
@@ -192,7 +200,7 @@ func (s *SiteController) RenderPasswordForm(ctx *gin.Context) {
 		return
 	}
 
-	hx := GetHxHeaders(ctx)
+	hx := middleware.GetHxHeaders(ctx)
 	if hx.Request {
 		ctx.HTML(200, "user_password.html", user)
 	} else {
