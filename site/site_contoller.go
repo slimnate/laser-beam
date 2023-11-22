@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/slimnate/laser-beam/crypto"
 	"github.com/slimnate/laser-beam/data/event"
 	"github.com/slimnate/laser-beam/data/organization"
 	"github.com/slimnate/laser-beam/data/session"
@@ -82,9 +83,6 @@ func (s *SiteController) ProcessLogin(ctx *gin.Context) {
 	username := ctx.PostForm("username")
 	password := ctx.PostForm("password")
 
-	log.Println("Username: " + username)
-	log.Println("Password: " + password)
-
 	user, err := s.userRepo.GetByUsername(username)
 	if err != nil {
 		log.Println("Invalid user")
@@ -93,7 +91,7 @@ func (s *SiteController) ProcessLogin(ctx *gin.Context) {
 		return
 	}
 
-	if user.Password != password {
+	if !crypto.TestMatch(password, user.Password) {
 		log.Println("invalid pass")
 		ctx.HTML(401, "login.html", gin.H{"Error": "Invalid username or password"})
 		return
@@ -206,6 +204,7 @@ func (s *SiteController) UpdatePassword(ctx *gin.Context) {
 	confirmPassword := ctx.PostForm("confirm_password")
 	if newPassword != confirmPassword {
 		ctx.AbortWithStatusJSON(500, gin.H{"Error": "Passwords must match"})
+		return
 	}
 
 	u, _, err := s.GetUserOrg(ctx)
@@ -213,9 +212,16 @@ func (s *SiteController) UpdatePassword(ctx *gin.Context) {
 		ctx.AbortWithStatus(500)
 		return
 	}
+
+	p, err := crypto.HashPassword(newPassword)
+	if err != nil {
+		ctx.AbortWithStatus(500)
+		return
+	}
+
 	userSecret := &user.UserSecret{
 		User:     *u,
-		Password: newPassword,
+		Password: p,
 	}
 
 	newUser, err := s.userRepo.UpdateLoginInfo(u.ID, *userSecret)
