@@ -12,6 +12,7 @@ import (
 	"github.com/slimnate/laser-beam/data/session"
 	"github.com/slimnate/laser-beam/data/user"
 	"github.com/slimnate/laser-beam/middleware"
+	"github.com/slimnate/laser-beam/validation"
 	"github.com/thanhpk/randstr"
 )
 
@@ -171,12 +172,23 @@ func (s *SiteController) RenderUserForm(ctx *gin.Context) {
 }
 
 func (s *SiteController) UpdateUser(ctx *gin.Context) {
+	hx := middleware.GetHxHeaders(ctx)
 	newFirstName := ctx.PostForm("first_name")
 	newLastName := ctx.PostForm("last_name")
 
 	user, org, err := s.GetUserOrg(ctx)
 	if err != nil {
 		ctx.AbortWithStatus(500)
+		return
+	}
+
+	valid, e := validation.ValidateUserUpdate(newFirstName, newLastName)
+	if !valid {
+		if hx.Request {
+			ctx.HTML(200, "user_form.html", gin.H{"User": user, "Errors": e})
+		} else {
+			ctx.HTML(200, "index.html", gin.H{"User": user, "Organization": org, "Route": "/account/edit", "Errors": e})
+		}
 		return
 	}
 
@@ -190,7 +202,6 @@ func (s *SiteController) UpdateUser(ctx *gin.Context) {
 		return
 	}
 
-	hx := middleware.GetHxHeaders(ctx)
 	if hx.Request {
 		ctx.HTML(200, "user_display.html", newUser)
 	} else {
@@ -214,16 +225,23 @@ func (s *SiteController) RenderPasswordForm(ctx *gin.Context) {
 }
 
 func (s *SiteController) UpdatePassword(ctx *gin.Context) {
+	hx := middleware.GetHxHeaders(ctx)
 	newPassword := ctx.PostForm("password")
 	confirmPassword := ctx.PostForm("confirm_password")
-	if newPassword != confirmPassword {
-		ctx.AbortWithStatusJSON(500, gin.H{"Error": "Passwords must match"})
-		return
-	}
 
 	u, org, err := s.GetUserOrg(ctx)
 	if err != nil {
 		ctx.AbortWithStatus(500)
+		return
+	}
+
+	valid, e := validation.ValidatePasswordUpdate(newPassword, confirmPassword)
+	if !valid {
+		if hx.Request {
+			ctx.HTML(200, "user_password.html", gin.H{"User": u, "Errors": e})
+		} else {
+			ctx.HTML(200, "index.html", gin.H{"User": u, "Organization": org, "Route": "/account/password", "Errors": e})
+		}
 		return
 	}
 
@@ -245,7 +263,6 @@ func (s *SiteController) UpdatePassword(ctx *gin.Context) {
 		return
 	}
 
-	hx := middleware.GetHxHeaders(ctx)
 	if hx.Request {
 		ctx.HTML(200, "user_display.html", newUser)
 	} else {
