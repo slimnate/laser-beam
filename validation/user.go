@@ -12,11 +12,11 @@ const (
 func ValidateUserUpdate(first string, last string) (valid bool, errors map[string]string) {
 	valid = true
 	errors = make(map[string]string)
-	if len(first) <= FirstNameMinLength {
+	if len(first) < FirstNameMinLength {
 		errors["FirstName"] = fmt.Sprintf("First name must have at least %d characters", FirstNameMinLength)
 		valid = false
 	}
-	if len(last) <= LastNameMinLength {
+	if len(last) < LastNameMinLength {
 		errors["LastName"] = fmt.Sprintf("Last name must have at least %d characters", LastNameMinLength)
 		valid = false
 	}
@@ -32,7 +32,7 @@ func ValidatePasswordUpdate(password string, confirmPassword string) (valid bool
 		return
 	}
 
-	if len(password) <= PasswordMinLength {
+	if len(password) < PasswordMinLength {
 		errors["Password"] = fmt.Sprintf("Password must be at least %d characters long", PasswordMinLength)
 		valid = false
 		return
