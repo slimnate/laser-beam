@@ -89,6 +89,7 @@ func (s *SiteController) Index(ctx *gin.Context) {
 		Events:       events,
 		Route:        "/",
 	}
+
 	HxRespond(200, ctx, "dashboard.html", "index.html", data)
 }
 
@@ -184,6 +185,7 @@ func (s *SiteController) RenderUserForm(ctx *gin.Context) {
 		Organization: org,
 		Route:        "/account/edit",
 	}
+
 	HxRespond(200, ctx, "user_form.html", "index.html", data)
 }
 
@@ -223,6 +225,8 @@ func (s *SiteController) UpdateUser(ctx *gin.Context) {
 
 	data.User = newUser
 	data.Route = "/account"
+	data.AddToast("Successfully updated user account!")
+
 	HxRespond(200, ctx, "user_display.html", "index.html", data)
 }
 
@@ -287,6 +291,7 @@ func (s *SiteController) UpdatePassword(ctx *gin.Context) {
 
 	data.User = newUser
 	data.Route = "/account"
+	data.AddToast("Successfully updated password!")
 
 	HxRespond(200, ctx, "user_display.html", "index.html", data)
 }

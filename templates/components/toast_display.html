@@ -1,0 +1,19 @@
+<div class="fixed left-0 right-0 top-20 mx-auto w-80">
+  {{ range $_, $toast := . }}
+  <div
+    class="flex w-full rounded-md border border-blue-500 bg-blue-300 p-2.5"
+    x-data="{show: true}"
+    x-show="show"
+    x-init="setTimeout(() => { show = false }, 5000)"
+  >
+    <span class="grow">{{ $toast }}</span>
+    <button
+      type="button"
+      class="justify-end text-blue-500"
+      x-on:click="show = false"
+    >
+      <img src="/static/img/close.svg" alt="Close" class="w-4" />
+    </button>
+  </div>
+  {{ end }}
+</div>
