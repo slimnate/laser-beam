@@ -31,7 +31,7 @@
       />
     </div>
 
-    {{ if .Errors.FirstName }}
+    {{ if .HasError "FirstName" }}
     <div class="flex flex-row items-center justify-end pb-2.5">
       <p class="text-sm text-red-500">{{ .Errors.FirstName }}</p>
     </div>
@@ -51,7 +51,7 @@
       />
     </div>
 
-    {{ if .Errors.LastName }}
+    {{ if .HasError "LastName" }}
     <div class="flex flex-row items-center justify-end pb-2.5">
       <p class="text-sm text-red-500">{{ .Errors.LastName }}</p>
     </div>
