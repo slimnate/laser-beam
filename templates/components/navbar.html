@@ -3,7 +3,13 @@
     class="mx-auto flex max-w-screen-xl flex-wrap items-center justify-between p-4"
   >
     <div class="flex items-baseline space-x-3 rtl:space-x-reverse">
-      <a href="/" hx-get="/" hx-target="#content" hx-push-url="true">
+      <a
+        href="/"
+        hx-get="/"
+        hx-target="#content"
+        hx-push-url="true"
+        hx-swap="innerHTML transition:true"
+      >
         <span class="whitespace-nowrap text-2xl font-semibold">LaserBeam</span>
       </a>
     </div>
@@ -50,6 +56,7 @@
             hx-get="/account"
             hx-target="#content"
             hx-push-url="true"
+            hx-swap="innerHTML transition:true"
             class="block rounded px-3 py-2 text-gray-900 hover:bg-gray-100 md:border-0 md:p-0 md:hover:bg-transparent md:hover:text-blue-700"
             >Account</a
           >
