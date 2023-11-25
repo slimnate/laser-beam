@@ -8,7 +8,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	_ "github.com/mattn/go-sqlite3"
-	"github.com/slimnate/laser-beam/crypto"
 	"github.com/slimnate/laser-beam/data/event"
 	"github.com/slimnate/laser-beam/data/organization"
 	"github.com/slimnate/laser-beam/data/session"
@@ -148,7 +147,8 @@ func InitUser(db *sql.DB) (*user.UserController, *user.SQLiteRepository) {
 				AdminStatus:    2,
 				OrganizationID: 1,
 			},
-			Password: "password",
+			Password: "$2a$15$dRgGBE56DiFg/I2sarfnKOYk6GMHSo/A5U38OIDpjKeePBGlLFqKe",
+			// Password: "password",
 		},
 		{
 			User: user.User{
@@ -158,7 +158,8 @@ func InitUser(db *sql.DB) (*user.UserController, *user.SQLiteRepository) {
 				AdminStatus:    1,
 				OrganizationID: 2,
 			},
-			Password: "password",
+			Password: "$2a$15$221/N0pnu5epRsGzs39JCucTXzNMYh22YHFu5oIW36lJ3bYKghz3K",
+			// Password: "password",
 		},
 		{
 			User: user.User{
@@ -168,17 +169,18 @@ func InitUser(db *sql.DB) (*user.UserController, *user.SQLiteRepository) {
 				AdminStatus:    0,
 				OrganizationID: 2,
 			},
-			Password: "password",
+			Password: "$2a$15$TIeBxsBMN94IxawycrT4Ce1HcomMwBoJHt3wsEX5rE56XCV3slN7e",
+			// Password: "password",
 		},
 	}
 
 	for _, user := range users {
 		//Hash user password before storing
-		hashed, err := crypto.HashPassword(user.Password)
-		if err != nil {
-			log.Fatal("Unable to hash password: " + err.Error())
-		}
-		user.Password = hashed
+		// hashed, err := crypto.HashPassword(user.Password)
+		// if err != nil {
+		// 	log.Fatal("Unable to hash password: " + err.Error())
+		// }
+		// user.Password = hashed
 
 		created, err := repo.Create(user)
 		if err != nil {
@@ -223,9 +225,11 @@ func main() {
 		authGroup.GET("/", siteController.Index)
 		authGroup.GET("/account", siteController.RenderAccount)
 		authGroup.PUT("/account", siteController.UpdateUser)
+		authGroup.POST("/account", siteController.UpdateUser)
 		authGroup.GET("/account/edit", siteController.RenderUserForm)
 		authGroup.GET("/account/password", siteController.RenderPasswordForm)
 		authGroup.PUT("/account/password", siteController.UpdatePassword)
+		authGroup.POST("/account/password", siteController.UpdatePassword)
 	}
 
 	router.GET("/login", siteController.RenderLogin)

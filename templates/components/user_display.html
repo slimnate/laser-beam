@@ -1,4 +1,6 @@
-<div class="mb-8 text-3xl">Account - {{ .FullName }}</div>
+{{ template "toast_display.html" .Toasts }}
+
+<div class="mb-8 text-3xl">Account - {{ .User.FullName }}</div>
 
 <div class="mr-16 flex flex-grow flex-col justify-center">
   <!-- Username -->
@@ -11,7 +13,7 @@
       name="username"
       id="username"
       class="flex-grow border-0 p-2.5 focus:border-blue-500 focus-visible:!outline-0"
-      value="{{ .Username }}"
+      value="{{ .User.Username }}"
       disabled
     />
   </div>
@@ -26,7 +28,7 @@
       name="first_name"
       id="first_name"
       class="flex-grow border-0 p-2.5 focus:border-blue-500 focus-visible:!outline-0"
-      value="{{ .FirstName }}"
+      value="{{ .User.FirstName }}"
       disabled
     />
   </div>
@@ -41,7 +43,7 @@
       name="last_name"
       id="last_name"
       class="flex-grow border-0 p-2.5 focus:border-blue-500 focus-visible:!outline-0"
-      value="{{ .LastName }}"
+      value="{{ .User.LastName }}"
       disabled
     />
   </div>
@@ -56,30 +58,41 @@
       name="admin_status"
       id="admin_status"
       class="flex-grow border-0 p-2.5 focus:border-blue-500 focus-visible:!outline-0"
-      value="{{ .AdminStatusString }}"
+      value="{{ .User.AdminStatusString }}"
       disabled
     />
   </div>
 
-  <!-- Submit button -->
+  <!-- Action buttons -->
   <div class="flex w-full justify-end space-x-2.5">
-    <button
+    <a
+      href="/account/password"
       hx-get="/account/password"
       hx-target="#content"
       hx-push-url="true"
-      type="submit"
-      class="rounded-md border border-green-800 bg-green-500 p-2.5 px-4 font-semibold"
+      hx-swap="innerHTML transition:true"
+      ><button
+        type="submit"
+        class="rounded-md border border-green-800 bg-green-500 p-2.5 px-4 font-semibold"
+      >
+        Change Password
+      </button></a
     >
-      Change Password
-    </button>
-    <button
+    <a
+      href="/account/edit"
       hx-get="/account/edit"
       hx-target="#content"
       hx-push-url="true"
-      type="submit"
-      class="rounded-md border border-green-800 bg-green-500 p-2.5 px-4 font-semibold"
+      ><button
+        hx-get="/account/edit"
+        hx-target="#content"
+        hx-push-url="true"
+        hx-swap="innerHTML transition:true"
+        type="submit"
+        class="rounded-md border border-green-800 bg-green-500 p-2.5 px-4 font-semibold"
+      >
+        Edit
+      </button></a
     >
-      Edit
-    </button>
   </div>
 </div>

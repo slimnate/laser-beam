@@ -1,7 +1,7 @@
 <div class="mb-8 text-3xl">Edit Account</div>
 
 <div class="mr-16 flex flex-grow flex-col justify-center">
-  <form>
+  <form action="/account" method="POST">
     <!-- Username -->
     <div class="flex flex-row items-center pb-2.5">
       <label for="username" class="flex basis-32 justify-end p-2.5"
@@ -12,7 +12,7 @@
         name="username"
         id="username"
         class="flex-grow border-0 p-2.5 focus:border-blue-500 focus-visible:!outline-0"
-        value="{{ .Username }}"
+        value="{{ .User.Username }}"
         disabled
       />
     </div>
@@ -27,9 +27,15 @@
         name="first_name"
         id="first_name"
         class="flex-grow rounded-md border p-2.5 focus:border-blue-500 focus-visible:!outline-0"
-        value="{{ .FirstName }}"
+        value="{{ .User.FirstName }}"
       />
     </div>
+
+    {{ if .HasError "FirstName" }}
+    <div class="flex flex-row items-center justify-end pb-2.5">
+      <p class="text-sm text-red-500">{{ .Errors.FirstName }}</p>
+    </div>
+    {{ end }}
 
     <!-- Last Name -->
     <div class="flex flex-row items-center pb-2.5">
@@ -41,11 +47,17 @@
         name="last_name"
         id="last_name"
         class="flex-grow rounded-md border p-2.5 focus:border-blue-500 focus-visible:!outline-0"
-        value="{{ .LastName }}"
+        value="{{ .User.LastName }}"
       />
     </div>
 
-    <!-- Button group -->
+    {{ if .HasError "LastName" }}
+    <div class="flex flex-row items-center justify-end pb-2.5">
+      <p class="text-sm text-red-500">{{ .Errors.LastName }}</p>
+    </div>
+    {{ end }}
+
+    <!-- Action buttons -->
     <div class="flex w-full justify-end space-x-2.5">
       <img
         src="/static/img/puff.svg"
@@ -53,18 +65,25 @@
         class="htmx-indicator"
         id="indicator"
       />
-      <button
+      <a
+        href="/account"
         hx-get="/account"
         hx-target="#content"
         hx-push-url="true"
-        class="rounded-md border border-red-800 bg-red-500 p-2.5 px-4 font-semibold"
+        hx-swap="innerHTML transition:true"
       >
-        Cancel
-      </button>
+        <button
+          class="rounded-md border border-red-800 bg-red-500 p-2.5 px-4 font-semibold"
+          type="button"
+        >
+          Cancel
+        </button></a
+      >
       <button
         hx-put="/account"
         hx-target="#content"
         hx-push-url="true"
+        hx-swap="innerHTML transition:true"
         hx-indicator="#indicator"
         type="submit"
         class="rounded-md border border-blue-800 bg-blue-500 p-2.5 px-4 font-semibold"

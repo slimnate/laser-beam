@@ -12,6 +12,7 @@ import (
 	"github.com/slimnate/laser-beam/data/session"
 	"github.com/slimnate/laser-beam/data/user"
 	"github.com/slimnate/laser-beam/middleware"
+	"github.com/slimnate/laser-beam/validation"
 	"github.com/thanhpk/randstr"
 )
 
@@ -31,13 +32,28 @@ func NewSiteController(orgRepo *organization.SQLiteRepository, eventRepo *event.
 	}
 }
 
-func GetHxHeaders(ctx *gin.Context) *middleware.HTMXHeaders {
-	hxHeaders, _ := ctx.Get("hx")
-	hx := hxHeaders.(*middleware.HTMXHeaders)
-
-	return hx
+// Send a different response depending whether we are responding to an HTMX request or not
+func HxRespond(status int, ctx *gin.Context, htmxTemplate string, defaultTemplate string, data any) {
+	hx := middleware.GetHxHeaders(ctx)
+	if hx.Request {
+		ctx.HTML(200, htmxTemplate, data)
+	} else {
+		ctx.HTML(status, defaultTemplate, data)
+	}
 }
 
+// Redirect the page, using different methods for HTMX and non-htmx requests
+func HxRedirect(ctx *gin.Context, path string) {
+	hx := middleware.GetHxHeaders(ctx)
+	if hx.Request {
+		ctx.Header("HX-Redirect", path)
+		ctx.AbortWithStatus(200)
+	} else {
+		ctx.Redirect(302, path)
+	}
+}
+
+// Extract the user and organization data from the request context
 func (s *SiteController) GetUserOrg(ctx *gin.Context) (u *user.User, o *organization.Organization, err error) {
 	userAny, exists := ctx.Get("user")
 	if !exists {
@@ -53,6 +69,7 @@ func (s *SiteController) GetUserOrg(ctx *gin.Context) (u *user.User, o *organiza
 	return user, org, nil
 }
 
+// GET /
 func (s *SiteController) Index(ctx *gin.Context) {
 	user, org, err := s.GetUserOrg(ctx)
 	if err != nil {
@@ -66,41 +83,47 @@ func (s *SiteController) Index(ctx *gin.Context) {
 		return
 	}
 
-	hx := GetHxHeaders(ctx)
-
-	if hx.Request {
-		ctx.HTML(200, "dashboard.html", gin.H{"User": user, "Organization": org, "Events": events})
-	} else {
-		ctx.HTML(200, "index.html", gin.H{"User": user, "Organization": org, "Events": events, "Route": "/"})
+	data := PageData{
+		User:         user,
+		Organization: org,
+		Events:       events,
+		Route:        "/",
 	}
+
+	HxRespond(200, ctx, "dashboard.html", "index.html", data)
 }
 
+// GET /login
 func (s *SiteController) RenderLogin(ctx *gin.Context) {
 	ctx.HTML(http.StatusOK, "login.html", nil)
 }
 
+// POST /login
 func (s *SiteController) ProcessLogin(ctx *gin.Context) {
 	username := ctx.PostForm("username")
 	password := ctx.PostForm("password")
+
+	data := gin.H{"Error": "Invalid username or password", "Username": username}
 
 	user, err := s.userRepo.GetByUsername(username)
 	if err != nil {
 		log.Println("Invalid user")
 		log.Println(err.Error())
-		ctx.HTML(401, "login.html", gin.H{"Error": "Invalid username or password"})
+		HxRespond(401, ctx, "login_form.html", "index.html", data)
 		return
 	}
 
 	if !crypto.TestMatch(password, user.Password) {
 		log.Println("invalid pass")
-		ctx.HTML(401, "login.html", gin.H{"Error": "Invalid username or password"})
+		HxRespond(401, ctx, "login_form.html", "index.html", data)
 		return
 	}
 
 	session_key := randstr.String(64)
 	session, err := s.sessionRepo.Create(session_key, user.ID)
 	if err != nil {
-		ctx.AbortWithStatusJSON(500, gin.H{"error": "unable to create user session"})
+		ctx.AbortWithStatusJSON(500, gin.H{"Error": "unable to create user session"})
+		return
 	}
 
 	cookie := &http.Cookie{
@@ -110,9 +133,10 @@ func (s *SiteController) ProcessLogin(ctx *gin.Context) {
 	}
 	ctx.SetCookie(cookie.Name, cookie.Value, cookie.MaxAge, cookie.Path, cookie.Domain, cookie.Secure, cookie.HttpOnly)
 
-	ctx.Redirect(302, "/")
+	HxRedirect(ctx, "/")
 }
 
+// GET /logout
 func (s *SiteController) Logout(ctx *gin.Context) {
 	sessionCookie, err := ctx.Request.Cookie("session_key")
 	if err != nil {
@@ -131,6 +155,7 @@ func (s *SiteController) Logout(ctx *gin.Context) {
 	ctx.Redirect(302, "/")
 }
 
+// GET /account
 func (s *SiteController) RenderAccount(ctx *gin.Context) {
 	user, org, err := s.GetUserOrg(ctx)
 	if err != nil {
@@ -138,14 +163,16 @@ func (s *SiteController) RenderAccount(ctx *gin.Context) {
 		return
 	}
 
-	hx := GetHxHeaders(ctx)
-	if hx.Request {
-		ctx.HTML(200, "user_display.html", user)
-	} else {
-		ctx.HTML(200, "index.html", gin.H{"User": user, "Organization": org, "Route": "/account"})
+	data := PageData{
+		User:         user,
+		Organization: org,
+		Route:        "/account",
 	}
+
+	HxRespond(200, ctx, "user_display.html", "index.html", data)
 }
 
+// GET /account/edit
 func (s *SiteController) RenderUserForm(ctx *gin.Context) {
 	user, org, err := s.GetUserOrg(ctx)
 	if err != nil {
@@ -153,21 +180,36 @@ func (s *SiteController) RenderUserForm(ctx *gin.Context) {
 		return
 	}
 
-	hx := GetHxHeaders(ctx)
-	if hx.Request {
-		ctx.HTML(200, "user_form.html", user)
-	} else {
-		ctx.HTML(200, "index.html", gin.H{"User": user, "Organization": org, "Route": "/account/edit"})
+	data := PageData{
+		User:         user,
+		Organization: org,
+		Route:        "/account/edit",
 	}
+
+	HxRespond(200, ctx, "user_form.html", "index.html", data)
 }
 
+// POST /account/edit
 func (s *SiteController) UpdateUser(ctx *gin.Context) {
 	newFirstName := ctx.PostForm("first_name")
 	newLastName := ctx.PostForm("last_name")
 
-	user, _, err := s.GetUserOrg(ctx)
+	user, org, err := s.GetUserOrg(ctx)
 	if err != nil {
 		ctx.AbortWithStatus(500)
+		return
+	}
+
+	data := PageData{
+		User:         user,
+		Organization: org,
+		Route:        "/account/edit",
+	}
+
+	valid, e := validation.ValidateUserUpdate(newFirstName, newLastName)
+	if !valid {
+		data.Errors = e
+		HxRespond(200, ctx, "user_form.html", "index.html", data)
 		return
 	}
 
@@ -181,9 +223,14 @@ func (s *SiteController) UpdateUser(ctx *gin.Context) {
 		return
 	}
 
-	ctx.HTML(200, "user_display.html", newUser)
+	data.User = newUser
+	data.Route = "/account"
+	data.AddToast("Successfully updated user account!")
+
+	HxRespond(200, ctx, "user_display.html", "index.html", data)
 }
 
+// GET /account/password
 func (s *SiteController) RenderPasswordForm(ctx *gin.Context) {
 	user, org, err := s.GetUserOrg(ctx)
 	if err != nil {
@@ -191,25 +238,36 @@ func (s *SiteController) RenderPasswordForm(ctx *gin.Context) {
 		return
 	}
 
-	hx := GetHxHeaders(ctx)
-	if hx.Request {
-		ctx.HTML(200, "user_password.html", user)
-	} else {
-		ctx.HTML(200, "index.html", gin.H{"User": user, "Organization": org, "Route": "/account/password"})
+	data := PageData{
+		User:         user,
+		Organization: org,
+		Route:        "/account/password",
 	}
+
+	HxRespond(200, ctx, "user_password.html", "index.html", data)
 }
 
+// POST /account/password
 func (s *SiteController) UpdatePassword(ctx *gin.Context) {
 	newPassword := ctx.PostForm("password")
 	confirmPassword := ctx.PostForm("confirm_password")
-	if newPassword != confirmPassword {
-		ctx.AbortWithStatusJSON(500, gin.H{"Error": "Passwords must match"})
+
+	u, org, err := s.GetUserOrg(ctx)
+	if err != nil {
+		ctx.AbortWithStatus(500)
 		return
 	}
 
-	u, _, err := s.GetUserOrg(ctx)
-	if err != nil {
-		ctx.AbortWithStatus(500)
+	data := PageData{
+		User:         u,
+		Organization: org,
+		Route:        "/account/password",
+	}
+
+	valid, e := validation.ValidatePasswordUpdate(newPassword, confirmPassword)
+	if !valid {
+		data.Errors = e
+		HxRespond(200, ctx, "user_password.html", "index.html", data)
 		return
 	}
 
@@ -231,5 +289,9 @@ func (s *SiteController) UpdatePassword(ctx *gin.Context) {
 		return
 	}
 
-	ctx.HTML(200, "user_display.html", newUser)
+	data.User = newUser
+	data.Route = "/account"
+	data.AddToast("Successfully updated password!")
+
+	HxRespond(200, ctx, "user_display.html", "index.html", data)
 }
