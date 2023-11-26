@@ -7,6 +7,8 @@ type User struct {
 	Username       string
 	FirstName      string
 	LastName       string
+	Email          string
+	Phone          string
 	AdminStatus    int64 // 0 - normal user, 1 - org admin, 2 - global admin
 	OrganizationID int64
 }
