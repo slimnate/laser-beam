@@ -5,6 +5,7 @@ import "time"
 type Event struct {
 	ID             int64
 	Type           string
+	Application    string
 	Name           string
 	Message        string
 	Time           time.Time
