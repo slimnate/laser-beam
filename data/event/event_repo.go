@@ -26,6 +26,7 @@ func (r *SQLiteRepository) Migrate() error {
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		type TEXT NOT NULL,
 		name TEXT NOT NULL,
+		application TEXT,
 		message TEXT,
 		time INTEGER NOT NULL,
 		organization_id INTEGER NOT NULL,
@@ -40,8 +41,8 @@ func (r *SQLiteRepository) Migrate() error {
 func (r *SQLiteRepository) Create(event Event, orgID int64) (*Event, error) {
 	t := time.Now()
 	tUnix := t.Unix()
-	query := "INSERT INTO events(type, name, message, time, organization_id) values(?, ?, ?, ?, ?)"
-	res, err := r.db.Exec(query, event.Type, event.Name, event.Message, tUnix, orgID)
+	query := "INSERT INTO events(type, name, application, message, time, organization_id) values(?, ?, ?, ?, ?, ?)"
+	res, err := r.db.Exec(query, event.Type, event.Name, event.Application, event.Message, tUnix, orgID)
 
 	if err != nil {
 		var sqliteErr sqlite3.Error
@@ -71,7 +72,7 @@ func (r *SQLiteRepository) Create(event Event, orgID int64) (*Event, error) {
 }
 
 func (r *SQLiteRepository) All() ([]Event, error) {
-	rows, err := r.db.Query("SELECT id, message, name, organization_id, time, type from events")
+	rows, err := r.db.Query("SELECT id, type, name, application, message, time, organization_id from events")
 	if err != nil {
 		return nil, err
 	}
@@ -81,7 +82,7 @@ func (r *SQLiteRepository) All() ([]Event, error) {
 	for rows.Next() {
 		var e Event
 		var timestamp int64
-		if err := rows.Scan(&e.ID, &e.Message, &e.Name, &e.OrganizationID, &timestamp, &e.Type); err != nil {
+		if err := rows.Scan(&e.ID, &e.Type, &e.Name, &e.Application, &e.Message, &timestamp, &e.OrganizationID); err != nil {
 			return nil, err
 		}
 		e.Time = time.Unix(timestamp, 0)
@@ -91,7 +92,7 @@ func (r *SQLiteRepository) All() ([]Event, error) {
 }
 
 func (r *SQLiteRepository) AllForOrganization(orgID int64) ([]Event, error) {
-	rows, err := r.db.Query("SELECT id, message, name, organization_id, time, type from events WHERE organization_id = ?", orgID)
+	rows, err := r.db.Query("SELECT id, type, name, application, message, time, organization_id from events WHERE organization_id = ?", orgID)
 	if err != nil {
 		return nil, err
 	}
@@ -101,7 +102,7 @@ func (r *SQLiteRepository) AllForOrganization(orgID int64) ([]Event, error) {
 	for rows.Next() {
 		var e Event
 		var timestamp int64
-		if err := rows.Scan(&e.ID, &e.Message, &e.Name, &e.OrganizationID, &timestamp, &e.Type); err != nil {
+		if err := rows.Scan(&e.ID, &e.Type, &e.Name, &e.Application, &e.Message, &timestamp, &e.OrganizationID); err != nil {
 			return nil, err
 		}
 		e.Time = time.Unix(timestamp, 0)
@@ -111,11 +112,11 @@ func (r *SQLiteRepository) AllForOrganization(orgID int64) ([]Event, error) {
 }
 
 func (r *SQLiteRepository) GetByID(id int64) (*Event, error) {
-	row := r.db.QueryRow("SELECT id, message, name, organization_id, time, type FROM events WHERE id = ?", id)
+	row := r.db.QueryRow("SELECT id, type, name, application, message, time, organization_id FROM events WHERE id = ?", id)
 
 	var e Event
 	var timestamp int64
-	if err := row.Scan(&e.ID, &e.Message, &e.Name, &e.OrganizationID, &timestamp, &e.Type); err != nil {
+	if err := row.Scan(&e.ID, &e.Type, &e.Name, &e.Application, &e.Message, &timestamp, &e.OrganizationID); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, data.ErrNotExists
 		}
@@ -126,11 +127,11 @@ func (r *SQLiteRepository) GetByID(id int64) (*Event, error) {
 }
 
 func (r *SQLiteRepository) GetByIDAndOrg(id int64, orgID int64) (*Event, error) {
-	row := r.db.QueryRow("SELECT id, message, name, organization_id, time, type FROM events WHERE id = ? AND organization_id = ?", id, orgID)
+	row := r.db.QueryRow("SELECT id, type, name, application, message, time, organization_id FROM events WHERE id = ? AND organization_id = ?", id, orgID)
 
 	var e Event
 	var timestamp int64
-	if err := row.Scan(&e.ID, &e.Message, &e.Name, &e.OrganizationID, &timestamp, &e.Type); err != nil {
+	if err := row.Scan(&e.ID, &e.Type, &e.Name, &e.Application, &e.Message, &timestamp, &e.OrganizationID); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, data.ErrNotExists
 		}
@@ -144,8 +145,8 @@ func (r *SQLiteRepository) Update(id int64, newEvent Event) (*Event, error) {
 	if id == 0 {
 		return nil, errors.New("invalid ID to update")
 	}
-	query := "UPDATE events SET name = ?, type = ?, message = ? WHERE id = ?"
-	res, err := r.db.Exec(query, newEvent.Name, newEvent.Type, newEvent.Message, id)
+	query := "UPDATE events SET name = ?, type = ?, message = ?, application = ? WHERE id = ?"
+	res, err := r.db.Exec(query, newEvent.Name, newEvent.Type, newEvent.Message, newEvent.Application, id)
 
 	if err != nil {
 		return nil, err

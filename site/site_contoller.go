@@ -304,13 +304,16 @@ func (s *SiteController) UpdatePassword(ctx *gin.Context) {
 func (s *SiteController) RenderEvents(ctx *gin.Context) {
 	u, o, err := s.GetUserOrg(ctx)
 	if err != nil {
+		log.Println(err.Error())
 		ctx.AbortWithStatus(500)
 		return
 	}
 
 	e, err := s.eventRepo.AllForOrganization(o.ID)
 	if err != nil {
+		log.Println(err.Error())
 		ctx.AbortWithStatus(500)
+		return
 	}
 
 	data := PageData{

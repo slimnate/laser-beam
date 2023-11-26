@@ -80,51 +80,71 @@ func InitEvent(db *sql.DB) (*event.EventController, *event.SQLiteRepository) {
 		log.Fatal("Migration error", err)
 	}
 
-	events := []event.Event{
-		{
-			Name:           "Error 1",
-			Type:           "error",
-			Message:        "Some error message",
-			OrganizationID: 2,
-		},
-		{
-			Name:           "Error 2",
-			Type:           "error",
-			Message:        "Some error message",
-			OrganizationID: 2,
-		},
-		{
-			Name:           "Info 1",
-			Type:           "info",
-			Message:        "Some info message",
-			OrganizationID: 2,
-		},
-		{
-			Name:           "Error 1",
-			Type:           "error",
-			Message:        "Some error message",
-			OrganizationID: 3,
-		},
-		{
-			Name:           "Error 2",
-			Type:           "error",
-			Message:        "Some error message",
-			OrganizationID: 3,
-		},
-		{
-			Name:           "Info 1",
-			Type:           "info",
-			Message:        "Some info message",
-			OrganizationID: 3,
-		},
+	codes := []int{
+		1001,
+		1002,
+		1003,
+		1004,
+		1005,
 	}
 
-	for _, event := range events {
-		created, err := repo.Create(event, event.OrganizationID)
-		if err != nil {
-			log.Fatal(err)
+	messages := []string{
+		"Error 1001: Database connection failed. Please check your database credentials.",
+		"Error 1002: Database query failed. Please check your SQL syntax.",
+		"Error 1003: Database write failed. Please check your database permissions.",
+		"Error 1004: File upload failed. Please check your file size and format.",
+		"Error 1005: Email delivery failed. Please check your email server settings.",
+	}
+
+	// loop over org ids - start at org 2, since 1 is the global org and doesn't need events
+	for orgID := 2; orgID <= 3; orgID++ {
+		// loop over events
+		for eventNum := 1; eventNum <= 15; eventNum++ {
+			var (
+				name    string
+				eType   string
+				message string
+				app     string
+			)
+
+			// Half of events should be error, other half info
+			typeCode := eventNum % 2
+			// Share between three different app names
+			appCode := eventNum % 3
+			messageCode := eventNum % 5
+
+			if typeCode == 0 {
+				eType = "error"
+				name = fmt.Sprintf("Error %d", codes[messageCode])
+				message = messages[messageCode]
+			} else {
+				eType = "info"
+				name = fmt.Sprintf("Info %d", codes[messageCode])
+				message = messages[messageCode]
+			}
+
+			if appCode == 0 {
+				app = "TechNexus"
+			} else if appCode == 1 {
+				app = "InnovateX"
+			} else {
+				app = "CodeWave"
+			}
+
+			e := event.Event{
+				Name:           name,
+				Application:    app,
+				Type:           eType,
+				Message:        message,
+				OrganizationID: int64(orgID),
+			}
+
+			created, err := repo.Create(e, e.OrganizationID)
+			if err != nil {
+				log.Fatal(err)
+			}
+			fmt.Printf("Created event - id = %d | type = %s | app = %s | name = %s |  message = %s | organization_id = %d | time = %s \n", created.ID, created.Type, created.Application, created.Name, created.Message, created.OrganizationID, created.Time.Format("20060102150405"))
 		}
-		fmt.Printf("Created event - id = %d | name = %s | type = %s | message = %s | organization_id = %d | time = %s \n", created.ID, created.Name, created.Type, created.Message, created.OrganizationID, created.Time.Format("20060102150405"))
 	}
 
 	return controller, repo
