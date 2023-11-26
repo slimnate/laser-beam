@@ -299,3 +299,26 @@ func (s *SiteController) UpdatePassword(ctx *gin.Context) {
 
 	HxRespond(200, ctx, "user_display.html", "index.html", data)
 }
+
+// GET /events
+func (s *SiteController) RenderEvents(ctx *gin.Context) {
+	u, o, err := s.GetUserOrg(ctx)
+	if err != nil {
+		ctx.AbortWithStatus(500)
+		return
+	}
+
+	e, err := s.eventRepo.AllForOrganization(o.ID)
+	if err != nil {
+		ctx.AbortWithStatus(500)
+	}
+
+	data := PageData{
+		User:         u,
+		Organization: o,
+		Events:       e,
+		Route:        "/events",
+	}
+
+	HxRespond(200, ctx, "events_table.html", "index.html", data)
+}

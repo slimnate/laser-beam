@@ -8,6 +8,7 @@
       .Route "/account" }} {{ template "user_display.html" . }} {{end}} {{ if eq
       .Route "/account/edit" }} {{ template "user_form.html" . }} {{end}} {{ if
       eq .Route "/account/password" }} {{ template "user_password.html" . }}
+      {{end}}{{ if eq .Route "/events" }} {{ template "events_table.html" . }}
       {{end}}
     </main>
 
