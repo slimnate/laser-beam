@@ -1,0 +1,4 @@
+<div class="mb-8 text-3xl">Welcome, {{ .User.FullName }}</div>
+
+<div class="text-lg font-semibold">Events</div>
+{{ template "events_table.html" . }}

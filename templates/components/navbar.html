@@ -45,6 +45,10 @@
         <li>
           <a
             href="/events"
+            hx-get="/events"
+            hx-target="#content"
+            hx-push-url="true"
+            hx-swap="innerHTML transition:true"
             class="block rounded bg-blue-700 px-3 py-2 text-white md:bg-transparent md:p-0 md:text-blue-700"
             aria-current="page"
             >Events</a
