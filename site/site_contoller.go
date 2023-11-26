@@ -193,6 +193,8 @@ func (s *SiteController) RenderUserForm(ctx *gin.Context) {
 func (s *SiteController) UpdateUser(ctx *gin.Context) {
 	newFirstName := ctx.PostForm("first_name")
 	newLastName := ctx.PostForm("last_name")
+	newEmail := ctx.PostForm("email")
+	newPhone := ctx.PostForm("phone")
 
 	user, org, err := s.GetUserOrg(ctx)
 	if err != nil {
@@ -200,21 +202,23 @@ func (s *SiteController) UpdateUser(ctx *gin.Context) {
 		return
 	}
 
+	user.FirstName = newFirstName
+	user.LastName = newLastName
+	user.Email = newEmail
+	user.Phone = newPhone
+
 	data := PageData{
 		User:         user,
 		Organization: org,
 		Route:        "/account/edit",
 	}
 
-	valid, e := validation.ValidateUserUpdate(newFirstName, newLastName)
+	valid, e := validation.ValidateUserUpdate(user)
 	if !valid {
 		data.Errors = e
 		HxRespond(200, ctx, "user_form.html", "index.html", data)
 		return
 	}
-
-	user.FirstName = newFirstName
-	user.LastName = newLastName
 
 	newUser, err := s.userRepo.UpdateUserInfo(user.ID, *user)
 	if err != nil {

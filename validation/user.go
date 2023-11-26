@@ -1,6 +1,12 @@
 package validation
 
-import "fmt"
+import (
+	"fmt"
+	"net/mail"
+
+	"github.com/nyaruka/phonenumbers"
+	"github.com/slimnate/laser-beam/data/user"
+)
 
 const (
 	FirstNameMinLength = 3
@@ -9,17 +15,42 @@ const (
 	PasswordMaxLength  = 64
 )
 
-func ValidateUserUpdate(first string, last string) (valid bool, errors map[string]string) {
+// Validates the following properties on the user object:
+// - FirstName
+// - LastName
+// - Email
+// - Phone
+// Also automatically formats the phone number in the phonenumbers.NATIONAL format
+func ValidateUserUpdate(u *user.User) (valid bool, errors map[string]string) {
 	valid = true
 	errors = make(map[string]string)
-	if len(first) < FirstNameMinLength {
+	// Validate first name
+	if len(u.FirstName) < FirstNameMinLength {
 		errors["FirstName"] = fmt.Sprintf("First name must have at least %d characters", FirstNameMinLength)
 		valid = false
 	}
-	if len(last) < LastNameMinLength {
+
+	// Validate last name
+	if len(u.LastName) < LastNameMinLength {
 		errors["LastName"] = fmt.Sprintf("Last name must have at least %d characters", LastNameMinLength)
 		valid = false
 	}
+
+	// Validate email address
+	_, errMail := mail.ParseAddress(u.Email)
+	if errMail != nil {
+		errors["Email"] = "Invalid email address format"
+		valid = false
+	}
+
+	//Validate phone number
+	p, errPhone := phonenumbers.Parse(u.Phone, "US")
+	if errPhone != nil {
+		errors["Phone"] = "Invalid phone number"
+		valid = false
+	}
+	u.Phone = phonenumbers.Format(p, phonenumbers.NATIONAL)
+
 	return
 }
 

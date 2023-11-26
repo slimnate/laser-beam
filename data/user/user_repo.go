@@ -28,6 +28,8 @@ func (r *SQLiteRepository) Migrate() error {
 		password TEXT NOT NULL,
 		first_name TEXT NOT NULL,
 		last_name TEXT NOT NULL,
+		email TEXT NOT NULL,
+		phone TEXT,
 		admin_status INTEGER NOT NULL,
 		organization_id INTEGER NOT NULL,
 		FOREIGN KEY(organization_id) REFERENCES organizations(id)
@@ -39,8 +41,8 @@ func (r *SQLiteRepository) Migrate() error {
 }
 
 func (r *SQLiteRepository) Create(user UserSecret) (*User, error) {
-	query := "INSERT INTO users(username, password, first_name, last_name, admin_status, organization_id) values (?, ?, ?, ?, ?, ?)"
-	res, err := r.db.Exec(query, user.Username, user.Password, user.FirstName, user.LastName, user.AdminStatus, user.OrganizationID)
+	query := "INSERT INTO users(username, password, first_name, last_name, email, phone, admin_status, organization_id) values (?, ?, ?, ?, ?, ?, ?, ?)"
+	res, err := r.db.Exec(query, user.Username, user.Password, user.FirstName, user.LastName, user.Email, user.Phone, user.AdminStatus, user.OrganizationID)
 
 	if err != nil {
 		var sqliteErr sqlite3.Error
@@ -68,7 +70,7 @@ func (r *SQLiteRepository) Create(user UserSecret) (*User, error) {
 }
 
 func (r *SQLiteRepository) AllForOrganization(orgID int64) ([]User, error) {
-	rows, err := r.db.Query("SELECT id, username, first_name, last_name, admin_status, organization_id FROM users WHERE organization_id = ?", orgID)
+	rows, err := r.db.Query("SELECT id, username, first_name, last_name, email, phone, admin_status, organization_id FROM users WHERE organization_id = ?", orgID)
 	if err != nil {
 		return nil, err
 	}
@@ -77,7 +79,7 @@ func (r *SQLiteRepository) AllForOrganization(orgID int64) ([]User, error) {
 	var all []User
 	for rows.Next() {
 		var u User
-		if err := rows.Scan(&u.ID, &u.Username, &u.FirstName, &u.LastName, &u.AdminStatus, &u.OrganizationID); err != nil {
+		if err := rows.Scan(&u.ID, &u.Username, &u.FirstName, &u.LastName, &u.Email, &u.Phone, &u.AdminStatus, &u.OrganizationID); err != nil {
 			return nil, err
 		}
 		all = append(all, u)
@@ -86,10 +88,10 @@ func (r *SQLiteRepository) AllForOrganization(orgID int64) ([]User, error) {
 }
 
 func (r *SQLiteRepository) GetByID(id int64) (*User, error) {
-	row := r.db.QueryRow("SELECT id, username, first_name, last_name, admin_status, organization_id FROM users WHERE id = ?", id)
+	row := r.db.QueryRow("SELECT id, username, first_name, last_name, email, phone, admin_status, organization_id FROM users WHERE id = ?", id)
 
 	var u User
-	if err := row.Scan(&u.ID, &u.Username, &u.FirstName, &u.LastName, &u.AdminStatus, &u.OrganizationID); err != nil {
+	if err := row.Scan(&u.ID, &u.Username, &u.FirstName, &u.LastName, &u.Email, &u.Phone, &u.AdminStatus, &u.OrganizationID); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, data.ErrNotExists
 		}
@@ -99,10 +101,10 @@ func (r *SQLiteRepository) GetByID(id int64) (*User, error) {
 }
 
 func (r *SQLiteRepository) GetByUsername(username string) (*UserSecret, error) {
-	row := r.db.QueryRow("SELECT id, username, password, first_name, last_name, admin_status, organization_id FROM users WHERE username = ?", username)
+	row := r.db.QueryRow("SELECT id, username, password, first_name, last_name, email, phone, admin_status, organization_id FROM users WHERE username = ?", username)
 
 	var u UserSecret
-	if err := row.Scan(&u.ID, &u.Username, &u.Password, &u.FirstName, &u.LastName, &u.AdminStatus, &u.OrganizationID); err != nil {
+	if err := row.Scan(&u.ID, &u.Username, &u.Password, &u.FirstName, &u.LastName, &u.Email, &u.Phone, &u.AdminStatus, &u.OrganizationID); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, data.ErrNotExists
 		}
@@ -115,8 +117,8 @@ func (r *SQLiteRepository) UpdateUserInfo(id int64, new User) (*User, error) {
 	if id == 0 {
 		return nil, errors.New("invalid ID to update")
 	}
-	query := "UPDATE users SET first_name = ?, last_name = ? WHERE id = ?"
-	res, err := r.db.Exec(query, new.FirstName, new.LastName, id)
+	query := "UPDATE users SET first_name = ?, last_name = ?, email = ?, phone = ? WHERE id = ?"
+	res, err := r.db.Exec(query, new.FirstName, new.LastName, new.Email, new.Phone, id)
 
 	if err != nil {
 		return nil, err

@@ -144,6 +144,8 @@ func InitUser(db *sql.DB) (*user.UserController, *user.SQLiteRepository) {
 				Username:       "admin1",
 				FirstName:      "Admin",
 				LastName:       "Global",
+				Email:          "admin1@globalorg.com",
+				Phone:          "1234567890",
 				AdminStatus:    2,
 				OrganizationID: 1,
 			},
@@ -154,7 +156,9 @@ func InitUser(db *sql.DB) (*user.UserController, *user.SQLiteRepository) {
 			User: user.User{
 				Username:       "admin2",
 				FirstName:      "Admin",
-				LastName:       "One",
+				LastName:       "OrgTwo",
+				Email:          "admin2@org2.com",
+				Phone:          "1234567890",
 				AdminStatus:    1,
 				OrganizationID: 2,
 			},
@@ -165,7 +169,9 @@ func InitUser(db *sql.DB) (*user.UserController, *user.SQLiteRepository) {
 			User: user.User{
 				Username:       "user2",
 				FirstName:      "User",
-				LastName:       "One",
+				LastName:       "OrgTwo",
+				Email:          "user2@org2.com",
+				Phone:          "1234567890",
 				AdminStatus:    0,
 				OrganizationID: 2,
 			},
@@ -186,7 +192,7 @@ func InitUser(db *sql.DB) (*user.UserController, *user.SQLiteRepository) {
 		if err != nil {
 			log.Fatal(err)
 		}
-		fmt.Printf("Create user - id: %d | username: %s | first: %s | last: %s | admin: %d, org_id: %d \n", created.ID, created.Username, created.FirstName, created.LastName, created.AdminStatus, created.OrganizationID)
+		fmt.Printf("Create user - id: %d | u: %s | name: %s | e: %s | p: %s | admin: %d, org_id: %d \n", created.ID, created.Username, created.FullName(), created.Email, created.Phone, created.AdminStatus, created.OrganizationID)
 	}
 
 	return controller, repo
