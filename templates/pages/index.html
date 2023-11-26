@@ -3,13 +3,12 @@
   <body class="noscript">
     {{ template "navbar.html" . }}
 
-    <main class="slide-it mx-12 mt-4 h-screen" id="content">
+    <main class="slide-it mx-12 mt-4" id="content">
       {{ if eq .Route "/" }} {{ template "dashboard.html" .}} {{ end }} {{ if eq
       .Route "/account" }} {{ template "user_display.html" . }} {{end}} {{ if eq
       .Route "/account/edit" }} {{ template "user_form.html" . }} {{end}} {{ if
       eq .Route "/account/password" }} {{ template "user_password.html" . }}
-      {{end}}{{ if eq .Route "/events" }} {{ template "events_table.html" . }}
-      {{end}}
+      {{end}}{{ if eq .Route "/events" }} {{ template "events.html" . }} {{end}}
     </main>
 
     {{ template "footer.html" }}

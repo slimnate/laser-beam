@@ -320,5 +320,5 @@ func (s *SiteController) RenderEvents(ctx *gin.Context) {
 		Route:        "/events",
 	}
 
-	HxRespond(200, ctx, "events_table.html", "index.html", data)
+	HxRespond(200, ctx, "events.html", "index.html", data)
 }
