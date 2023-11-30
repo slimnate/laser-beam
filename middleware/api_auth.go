@@ -6,7 +6,7 @@ import (
 )
 
 // Middleware to check for a valid auth key, and add the corresponding org id to the request context
-func ApiAuthMiddleware(orgRepo *organization.SQLiteRepository) gin.HandlerFunc {
+func ApiAuthMiddleware(orgRepo *organization.OrganizationRepository) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		key, exists := ctx.GetQuery("key")
 		if !exists {

@@ -3,29 +3,27 @@ package organization
 import (
 	"database/sql"
 	"errors"
-	"fmt"
 
-	"github.com/mattn/go-sqlite3"
 	"github.com/slimnate/laser-beam/data"
 )
 
 // Repository
-type SQLiteRepository struct {
+type OrganizationRepository struct {
 	db *sql.DB
 }
 
-func NewSQLiteRepository(db *sql.DB) *SQLiteRepository {
-	return &SQLiteRepository{
+func NewOrganizationRepository(db *sql.DB) *OrganizationRepository {
+	return &OrganizationRepository{
 		db: db,
 	}
 }
 
-func (r *SQLiteRepository) Migrate() error {
+func (r *OrganizationRepository) Migrate() error {
 	query := `
 	CREATE TABLE IF NOT EXISTS organizations(
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		name TEXT NOT NULL UNIQUE,
-		key TEXT NOT NULL
+		id SERIAL PRIMARY KEY,
+		name VARCHAR(100) NOT NULL UNIQUE,
+		key VARCHAR(100) NOT NULL
 	)
 	`
 
@@ -33,32 +31,21 @@ func (r *SQLiteRepository) Migrate() error {
 	return err
 }
 
-func (r *SQLiteRepository) Create(org Organization, key string) (*Organization, error) {
-	query := "INSERT INTO organizations(name, key) values(?, ?)"
-	res, err := r.db.Exec(query, org.Name, key)
+func (r *OrganizationRepository) Create(org Organization, key string) (*Organization, error) {
+	var lastInsertId int64
+	query := "INSERT INTO organizations (name, key) values ($1, $2) RETURNING id"
+	err := r.db.QueryRow(query, org.Name, key).Scan(&lastInsertId)
 
-	if err != nil {
-		var sqliteErr sqlite3.Error
-		if errors.As(err, &sqliteErr) {
-			if errors.Is(sqliteErr.ExtendedCode, sqlite3.ErrConstraintUnique) {
-				return nil, data.ErrDuplicate
-			}
-		}
-		fmt.Printf("err: %v\n", err)
-		return nil, err
-	}
-
-	id, err := res.LastInsertId()
 	if err != nil {
 		return nil, err
 	}
 
-	org.ID = id
+	org.ID = lastInsertId
 
 	return &org, nil
 }
 
-func (r *SQLiteRepository) All() ([]Organization, error) {
+func (r *OrganizationRepository) All() ([]Organization, error) {
 	rows, err := r.db.Query("SELECT id, name from organizations")
 	if err != nil {
 		return nil, err
@@ -76,8 +63,8 @@ func (r *SQLiteRepository) All() ([]Organization, error) {
 	return all, nil
 }
 
-func (r *SQLiteRepository) GetByID(id int64) (*Organization, error) {
-	row := r.db.QueryRow("SELECT id, name FROM organizations WHERE id = ?", id)
+func (r *OrganizationRepository) GetByID(id int64) (*Organization, error) {
+	row := r.db.QueryRow("SELECT id, name FROM organizations WHERE id = $1", id)
 
 	var org Organization
 	if err := row.Scan(&org.ID, &org.Name); err != nil {
@@ -89,8 +76,8 @@ func (r *SQLiteRepository) GetByID(id int64) (*Organization, error) {
 	return &org, nil
 }
 
-func (r *SQLiteRepository) GetByKey(key string) (*Organization, error) {
-	row := r.db.QueryRow("SELECT id, name FROM organizations WHERE key = ?", key)
+func (r *OrganizationRepository) GetByKey(key string) (*Organization, error) {
+	row := r.db.QueryRow("SELECT id, name FROM organizations WHERE key = $1", key)
 
 	var org Organization
 	if err := row.Scan(&org.ID, &org.Name); err != nil {
@@ -102,11 +89,11 @@ func (r *SQLiteRepository) GetByKey(key string) (*Organization, error) {
 	return &org, nil
 }
 
-func (r *SQLiteRepository) Update(id int64, updated Organization) (*Organization, error) {
+func (r *OrganizationRepository) Update(id int64, updated Organization) (*Organization, error) {
 	if id == 0 {
 		return nil, errors.New("invalid ID to update")
 	}
-	query := "UPDATE organizations SET name = ? WHERE id = ?"
+	query := "UPDATE organizations SET name = $1 WHERE id = $2"
 	res, err := r.db.Exec(query, updated.Name, updated.ID)
 
 	if err != nil {
@@ -125,8 +112,8 @@ func (r *SQLiteRepository) Update(id int64, updated Organization) (*Organization
 	return &updated, nil
 }
 
-func (r *SQLiteRepository) Delete(id int64) error {
-	res, err := r.db.Exec("DELETE FROM organizations WHERE id = ?", id)
+func (r *OrganizationRepository) Delete(id int64) error {
+	res, err := r.db.Exec("DELETE FROM organizations WHERE id = $1", id)
 	if err != nil {
 		return err
 	}

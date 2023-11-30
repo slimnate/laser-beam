@@ -3,33 +3,31 @@ package user
 import (
 	"database/sql"
 	"errors"
-	"fmt"
 
-	"github.com/mattn/go-sqlite3"
 	"github.com/slimnate/laser-beam/data"
 )
 
 // Repository
-type SQLiteRepository struct {
+type UserRepository struct {
 	db *sql.DB
 }
 
-func NewSQLiteRepository(db *sql.DB) *SQLiteRepository {
-	return &SQLiteRepository{
+func NewUserRepository(db *sql.DB) *UserRepository {
+	return &UserRepository{
 		db: db,
 	}
 }
 
-func (r *SQLiteRepository) Migrate() error {
+func (r *UserRepository) Migrate() error {
 	query := `
 	CREATE TABLE IF NOT EXISTS users(
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		username TEXT NOT NULL UNIQUE,
-		password TEXT NOT NULL,
-		first_name TEXT NOT NULL,
-		last_name TEXT NOT NULL,
-		email TEXT NOT NULL,
-		phone TEXT,
+		id SERIAL PRIMARY KEY,
+		username VARCHAR(50) NOT NULL UNIQUE,
+		password VARCHAR(64) NOT NULL,
+		first_name VARCHAR(64),
+		last_name VARCHAR(64),
+		email VARCHAR(128) NOT NULL,
+		phone VARCHAR(20),
 		admin_status INTEGER NOT NULL,
 		organization_id INTEGER NOT NULL,
 		FOREIGN KEY(organization_id) REFERENCES organizations(id)
@@ -40,37 +38,22 @@ func (r *SQLiteRepository) Migrate() error {
 	return err
 }
 
-func (r *SQLiteRepository) Create(user UserSecret) (*User, error) {
-	query := "INSERT INTO users(username, password, first_name, last_name, email, phone, admin_status, organization_id) values (?, ?, ?, ?, ?, ?, ?, ?)"
-	res, err := r.db.Exec(query, user.Username, user.Password, user.FirstName, user.LastName, user.Email, user.Phone, user.AdminStatus, user.OrganizationID)
+func (r *UserRepository) Create(user UserSecret) (*User, error) {
+	var lastInsertId int64
+	query := "INSERT INTO users(username, password, first_name, last_name, email, phone, admin_status, organization_id) values ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id"
+	err := r.db.QueryRow(query, user.Username, user.Password, user.FirstName, user.LastName, user.Email, user.Phone, user.AdminStatus, user.OrganizationID).Scan(&lastInsertId)
 
-	if err != nil {
-		var sqliteErr sqlite3.Error
-		if errors.As(err, &sqliteErr) {
-			if errors.Is(sqliteErr.ExtendedCode, sqlite3.ErrConstraintUnique) {
-				return nil, data.ErrDuplicate
-			}
-			if errors.Is(sqliteErr.ExtendedCode, sqlite3.ErrConstraintForeignKey) {
-				return nil, data.ErrForeignKey
-			}
-		}
-
-		fmt.Printf("err: %v\n", err)
-		return nil, err
-	}
-
-	id, err := res.LastInsertId()
 	if err != nil {
 		return nil, err
 	}
 
-	user.ID = id
+	user.ID = lastInsertId
 
 	return &user.User, nil
 }
 
-func (r *SQLiteRepository) AllForOrganization(orgID int64) ([]User, error) {
-	rows, err := r.db.Query("SELECT id, username, first_name, last_name, email, phone, admin_status, organization_id FROM users WHERE organization_id = ?", orgID)
+func (r *UserRepository) AllForOrganization(orgID int64) ([]User, error) {
+	rows, err := r.db.Query("SELECT id, username, first_name, last_name, email, phone, admin_status, organization_id FROM users WHERE organization_id = $1", orgID)
 	if err != nil {
 		return nil, err
 	}
@@ -87,8 +70,8 @@ func (r *SQLiteRepository) AllForOrganization(orgID int64) ([]User, error) {
 	return all, nil
 }
 
-func (r *SQLiteRepository) GetByID(id int64) (*User, error) {
-	row := r.db.QueryRow("SELECT id, username, first_name, last_name, email, phone, admin_status, organization_id FROM users WHERE id = ?", id)
+func (r *UserRepository) GetByID(id int64) (*User, error) {
+	row := r.db.QueryRow("SELECT id, username, first_name, last_name, email, phone, admin_status, organization_id FROM users WHERE id = $1", id)
 
 	var u User
 	if err := row.Scan(&u.ID, &u.Username, &u.FirstName, &u.LastName, &u.Email, &u.Phone, &u.AdminStatus, &u.OrganizationID); err != nil {
@@ -100,8 +83,8 @@ func (r *SQLiteRepository) GetByID(id int64) (*User, error) {
 	return &u, nil
 }
 
-func (r *SQLiteRepository) GetByUsername(username string) (*UserSecret, error) {
-	row := r.db.QueryRow("SELECT id, username, password, first_name, last_name, email, phone, admin_status, organization_id FROM users WHERE username = ?", username)
+func (r *UserRepository) GetByUsername(username string) (*UserSecret, error) {
+	row := r.db.QueryRow("SELECT id, username, password, first_name, last_name, email, phone, admin_status, organization_id FROM users WHERE username = $1", username)
 
 	var u UserSecret
 	if err := row.Scan(&u.ID, &u.Username, &u.Password, &u.FirstName, &u.LastName, &u.Email, &u.Phone, &u.AdminStatus, &u.OrganizationID); err != nil {
@@ -113,11 +96,11 @@ func (r *SQLiteRepository) GetByUsername(username string) (*UserSecret, error) {
 	return &u, nil
 }
 
-func (r *SQLiteRepository) UpdateUserInfo(id int64, new User) (*User, error) {
+func (r *UserRepository) UpdateUserInfo(id int64, new User) (*User, error) {
 	if id == 0 {
 		return nil, errors.New("invalid ID to update")
 	}
-	query := "UPDATE users SET first_name = ?, last_name = ?, email = ?, phone = ? WHERE id = ?"
+	query := "UPDATE users SET first_name = $1, last_name = $2, email = $3, phone = $4 WHERE id = $5"
 	res, err := r.db.Exec(query, new.FirstName, new.LastName, new.Email, new.Phone, id)
 
 	if err != nil {
@@ -141,11 +124,11 @@ func (r *SQLiteRepository) UpdateUserInfo(id int64, new User) (*User, error) {
 	return updated, nil
 }
 
-func (r *SQLiteRepository) UpdateLoginInfo(id int64, new UserSecret) (*User, error) {
+func (r *UserRepository) UpdateLoginInfo(id int64, new UserSecret) (*User, error) {
 	if id == 0 {
 		return nil, errors.New("invalid ID to update")
 	}
-	query := "UPDATE users SET username = ?, password = ? WHERE id = ?"
+	query := "UPDATE users SET username = $1, password = $2 WHERE id = $3"
 	res, err := r.db.Exec(query, new.Username, new.Password, id)
 
 	if err != nil {
@@ -169,8 +152,8 @@ func (r *SQLiteRepository) UpdateLoginInfo(id int64, new UserSecret) (*User, err
 	return updated, nil
 }
 
-func (r *SQLiteRepository) Delete(id int64) error {
-	res, err := r.db.Exec("DELETE FROM users WHERE id = ?", id)
+func (r *UserRepository) Delete(id int64) error {
+	res, err := r.db.Exec("DELETE FROM users WHERE id = $1", id)
 	if err != nil {
 		return err
 	}

@@ -8,10 +8,10 @@ import (
 )
 
 type EventController struct {
-	repo *SQLiteRepository
+	repo *EventRepository
 }
 
-func NewEventController(repo *SQLiteRepository) *EventController {
+func NewEventController(repo *EventRepository) *EventController {
 	return &EventController{
 		repo: repo,
 	}

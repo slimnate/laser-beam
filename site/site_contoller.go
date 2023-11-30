@@ -17,13 +17,13 @@ import (
 )
 
 type SiteController struct {
-	orgRepo     *organization.SQLiteRepository
-	eventRepo   *event.SQLiteRepository
-	userRepo    *user.SQLiteRepository
-	sessionRepo *session.SQLiteRepository
+	orgRepo     *organization.OrganizationRepository
+	eventRepo   *event.EventRepository
+	userRepo    *user.UserRepository
+	sessionRepo *session.SessionRepository
 }
 
-func NewSiteController(orgRepo *organization.SQLiteRepository, eventRepo *event.SQLiteRepository, userRepo *user.SQLiteRepository, sessionRepo *session.SQLiteRepository) *SiteController {
+func NewSiteController(orgRepo *organization.OrganizationRepository, eventRepo *event.EventRepository, userRepo *user.UserRepository, sessionRepo *session.SessionRepository) *SiteController {
 	return &SiteController{
 		orgRepo:     orgRepo,
 		eventRepo:   eventRepo,

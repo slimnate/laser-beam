@@ -8,10 +8,10 @@ import (
 )
 
 type OrganizationController struct {
-	repo *SQLiteRepository
+	repo *OrganizationRepository
 }
 
-func NewOrganizationController(repo *SQLiteRepository) *OrganizationController {
+func NewOrganizationController(repo *OrganizationRepository) *OrganizationController {
 	return &OrganizationController{
 		repo: repo,
 	}

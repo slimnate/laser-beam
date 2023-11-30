@@ -8,10 +8,10 @@ import (
 )
 
 type UserController struct {
-	repo *SQLiteRepository
+	repo *UserRepository
 }
 
-func NewUserController(repo *SQLiteRepository) *UserController {
+func NewUserController(repo *UserRepository) *UserController {
 	return &UserController{
 		repo: repo,
 	}
