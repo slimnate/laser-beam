@@ -4,7 +4,8 @@ go 1.21.3
 
 require (
 	github.com/gin-gonic/gin v1.9.1
-	github.com/mattn/go-sqlite3 v1.14.17
+	github.com/joho/godotenv v1.5.1
+	github.com/lib/pq v1.10.9
 	github.com/nyaruka/phonenumbers v1.2.2
 	github.com/thanhpk/randstr v1.0.6
 	golang.org/x/crypto v0.14.0

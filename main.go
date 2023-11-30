@@ -5,9 +5,11 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"time"
 
 	"github.com/gin-gonic/gin"
-	_ "github.com/mattn/go-sqlite3"
+	"github.com/joho/godotenv"
+	_ "github.com/lib/pq"
 	"github.com/slimnate/laser-beam/data/event"
 	"github.com/slimnate/laser-beam/data/organization"
 	"github.com/slimnate/laser-beam/data/session"
@@ -16,28 +18,87 @@ import (
 	"github.com/slimnate/laser-beam/site"
 )
 
-const dbFile = "data.db"
-
 func InitDB() *sql.DB {
-	// remove existing db
-	os.Remove(dbFile)
+	host := os.Getenv("DB_HOST")
+	port := os.Getenv("DB_PORT")
+	user := os.Getenv("DB_USER")
+	pass := os.Getenv("DB_PASS")
+	dbName := os.Getenv("DB_NAME")
+
+	connStr := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable", host, port, user, pass, dbName)
 
 	// open db
-	db, err := sql.Open("sqlite3", dbFile+"?_fk=true")
+	db, err := sql.Open("postgres", connStr)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("Cannot connect to database server: %s", err.Error())
 	}
+
+	err = db.Ping()
+	if err != nil {
+		log.Fatalf("Cannot communicate with database server: %s", err.Error())
+	}
+
+	appEnv := os.Getenv("APP_ENV")
+	log.Printf("Using APP_ENV: %s", appEnv)
+	if appEnv == "dev" {
+		// dev environment, clear database
+		_, err = db.Exec("DROP TABLE IF EXISTS users, organizations, sessions, events")
+		if err != nil {
+			log.Fatalf("Error dropping tables: %s", err.Error())
+		}
+	} else if appEnv == "prod" {
+		// prod environment - do nothing here currently, tables will be created by migration functions for each repo if needed
+	} else {
+		// invalid environment
+		log.Fatalf("Invalid value supplied for APP_ENV - '%s' - Must be either 'dev' or 'prod'", appEnv)
+	}
+
+	// tables := []string{
+	// 	"organizations",
+	// 	"users",
+	// 	"events",
+	// 	"sessions",
+	// }
+
+	// check if tables exist, and truncate if so
+	// for _, table := range tables {
+	// 	var exists bool
+	// 	row := db.QueryRow(fmt.Sprintf(`SELECT EXISTS (
+	// 		SELECT FROM pg_tables
+	// 		WHERE  schemaname = 'public'
+	// 		AND    tablename  = '%s'
+	// 	);`, table))
+	// 	row.Scan(&exists)
+
+	// 	if exists {
+	// 		// query := fmt.Sprintf("TRUNCATE TABLE %s RESTART IDENTITY CASCADE", table)
+	// 		query := fmt.Sprintf("DROP TABLE %s", table)
+	// 		log.Printf("Found table '%s', clearing...", table)
+	// 		res, err := db.Exec(query)
+	// 		if err != nil {
+	// 			log.Fatalf("Error truncating '%s': %s", table, err.Error())
+	// 		}
+	// 		affected, err := res.RowsAffected()
+	// 		if err != nil {
+	// 			log.Fatal(err.Error())
+	// 		}
+
+	// 		log.Printf("Successfully cleared table '%s', %d rows removed", table, affected)
+	// 	} else {
+	// 		log.Printf("Table '%s' not found, skipping...", table)
+	// 	}
+	// }
 
 	//return db
 	return db
 }
 
-func InitOrganization(db *sql.DB) (*organization.OrganizationController, *organization.SQLiteRepository) {
-	repo := organization.NewSQLiteRepository(db)
+func InitOrganization(db *sql.DB) (*organization.OrganizationController, *organization.OrganizationRepository) {
+	repo := organization.NewOrganizationRepository(db)
 	controller := organization.NewOrganizationController(repo)
 	// migrate
 	if err := repo.Migrate(); err != nil {
-		log.Fatal("Migration error: ", err)
+		log.Fatal("[organizations] Migration error: ", err)
 	}
 
 	//set up dummy data
@@ -64,7 +125,7 @@ func InitOrganization(db *sql.DB) (*organization.OrganizationController, *organi
 	for _, org := range orgs {
 		createdOrg, err := repo.Create(org.Organization, org.Key)
 		if err != nil {
-			log.Fatal(err)
+			log.Fatalf("Error initializing org %d: %s", org.ID, err.Error())
 		}
 		fmt.Printf("Created org: %s with ID: %d \n", createdOrg.Name, createdOrg.ID)
 	}
@@ -72,12 +133,12 @@ func InitOrganization(db *sql.DB) (*organization.OrganizationController, *organi
 	return controller, repo
 }
 
-func InitEvent(db *sql.DB) (*event.EventController, *event.SQLiteRepository) {
-	repo := event.NewSQLiteRepository(db)
+func InitEvent(db *sql.DB) (*event.EventController, *event.EventRepository) {
+	repo := event.NewEventRepository(db)
 	controller := event.NewEventController(repo)
 
 	if err := repo.Migrate(); err != nil {
-		log.Fatal("Migration error", err)
+		log.Fatal("[events] Migration error", err)
 	}
 
 	codes := []int{
@@ -136,6 +197,7 @@ func InitEvent(db *sql.DB) (*event.EventController, *event.SQLiteRepository) {
 				Application:    app,
 				Type:           eType,
 				Message:        message,
+				Time:           time.Now(),
 				OrganizationID: int64(orgID),
 			}
 
@@ -150,12 +212,12 @@ func InitEvent(db *sql.DB) (*event.EventController, *event.SQLiteRepository) {
 	return controller, repo
 }
 
-func InitUser(db *sql.DB) (*user.UserController, *user.SQLiteRepository) {
-	repo := user.NewSQLiteRepository(db)
+func InitUser(db *sql.DB) (*user.UserController, *user.UserRepository) {
+	repo := user.NewUserRepository(db)
 	controller := user.NewUserController(repo)
 
 	if err := repo.Migrate(); err != nil {
-		log.Fatal("Migration error", err)
+		log.Fatal("[users] Migration error", err)
 	}
 
 	users := []user.UserSecret{
@@ -218,17 +280,23 @@ func InitUser(db *sql.DB) (*user.UserController, *user.SQLiteRepository) {
 	return controller, repo
 }
 
-func InitSession(db *sql.DB) *session.SQLiteRepository {
-	repo := session.NewSQLiteRepository(db)
+func InitSession(db *sql.DB) *session.SessionRepository {
+	repo := session.NewSessionRepository(db)
 
 	if err := repo.Migrate(); err != nil {
-		log.Fatal(err)
+		log.Fatal("[sessions] Migration error", err)
 	}
 
 	return repo
 }
 
 func main() {
+	// Init .env variables
+	err := godotenv.Load(".env")
+	if err != nil {
+		panic("Couldn't read .env file")
+	}
+
 	// init database and controllers
 	db := InitDB()
 	orgController, orgRepo := InitOrganization(db)

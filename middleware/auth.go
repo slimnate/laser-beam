@@ -1,22 +1,25 @@
 package middleware
 
 import (
+	"fmt"
+	"os"
+
 	"github.com/gin-gonic/gin"
 	"github.com/slimnate/laser-beam/data/session"
 	"github.com/slimnate/laser-beam/data/user"
 )
 
-const autoLogin = true
-const autoLoginUser = "admin2"
+func AuthMiddleware(sessionRepo *session.SessionRepository, userRepo *user.UserRepository) gin.HandlerFunc {
+	autoLoginUser := os.Getenv("AUTO_LOGIN_USER")
 
-func AuthMiddleware(sessionRepo *session.SQLiteRepository, userRepo *user.SQLiteRepository) gin.HandlerFunc {
 	// if auto-login is enabled, we skip checking for any session keys
 	// and approve the request as if the `autoLoginUser` is already logged in
-	if autoLogin {
+	if autoLoginUser != "" {
 		return func(ctx *gin.Context) {
 			user, err := userRepo.GetByUsername(autoLoginUser)
 			if err != nil {
-				ctx.AbortWithStatusJSON(500, gin.H{"error": "Error on auto-login, user not found"})
+				msg := fmt.Sprintf("Error on auto-login, user '%s' not found", autoLoginUser)
+				ctx.AbortWithStatusJSON(500, gin.H{"error": msg})
 				return
 			}
 
