@@ -1,4 +1,4 @@
-<div class="relative overflow-x-auto shadow-md sm:rounded-lg">
+<div class="relative mb-8 overflow-x-auto shadow-md sm:rounded-lg">
   <table
     class="w-full text-left text-sm text-gray-500 rtl:text-right dark:text-gray-400"
   >
@@ -16,7 +16,7 @@
       </tr>
     </thead>
     <tbody>
-      {{ range $_, $event := .Events }}
+      {{ range $_, $event := .Events.Data }}
       <tr
         class="border-b odd:bg-white even:bg-gray-50 dark:border-gray-700 odd:dark:bg-gray-900 even:dark:bg-gray-800"
       >
@@ -42,4 +42,54 @@
       {{ end }}
     </tbody>
   </table>
+  <nav
+    class="flex-column flex flex-wrap items-center justify-between p-4 md:flex-row"
+    aria-label="Table navigation"
+  >
+    <span
+      class="mb-4 block w-full text-sm font-normal text-gray-500 dark:text-gray-400 md:mb-0 md:inline md:w-auto"
+      >Showing
+      <span class="font-semibold text-gray-900 dark:text-white"
+        >{{ .Events.Start }} - {{ .Events.End }}</span
+      >
+      of
+      <span class="font-semibold text-gray-900 dark:text-white"
+        >{{ .Events.Total }}</span
+      ></span
+    >
+    <ul
+      class="inline-flex h-8 items-center -space-x-px text-sm rtl:space-x-reverse"
+    >
+      <li>
+        {{ if ne .Events.PreviousPage nil }}
+        <a
+          href="{{ .Events.PreviousPage.QueryParams }}"
+          class="ms-0 flex h-8 items-center justify-center rounded-s-lg border border-gray-300 bg-white px-3 leading-tight text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+          >Previous</a
+        >
+        {{ else }}
+        <a
+          href="#"
+          class="ms-0 flex h-8 cursor-not-allowed items-center justify-center rounded-s-lg border border-gray-300 bg-gray-200 px-3 leading-tight text-gray-500"
+          >Previous</a
+        >
+        {{ end }}
+      </li>
+      <li>
+        {{ if .Events.NextPage }}
+        <a
+          href="{{ .Events.NextPage.QueryParams }}"
+          class="flex h-8 items-center justify-center rounded-e-lg border border-gray-300 bg-white px-3 leading-tight text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+          >Next</a
+        >
+        {{ else }}
+        <a
+          href="#"
+          class="ms-0 flex h-8 cursor-not-allowed items-center justify-center rounded-e-lg border border-gray-300 bg-gray-200 px-3 leading-tight text-gray-500"
+          >Next</a
+        >
+        {{ end }}
+      </li>
+    </ul>
+  </nav>
 </div>

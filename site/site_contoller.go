@@ -7,6 +7,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/slimnate/laser-beam/crypto"
+	"github.com/slimnate/laser-beam/data"
 	"github.com/slimnate/laser-beam/data/event"
 	"github.com/slimnate/laser-beam/data/organization"
 	"github.com/slimnate/laser-beam/data/session"
@@ -77,7 +78,14 @@ func (s *SiteController) Index(ctx *gin.Context) {
 		return
 	}
 
-	events, err := s.eventRepo.AllForOrganization(org.ID)
+	pag, err := data.ParsePaginationRequestOptionsCustomDefault(ctx, &data.PaginationRequestOptions{
+		Limit: 5,
+	})
+	if err != nil {
+		ctx.AbortWithStatus(500)
+	}
+
+	events, err := s.eventRepo.AllForOrganization(org.ID, pag)
 	if err != nil {
 		ctx.AbortWithStatus(500)
 		return
@@ -302,6 +310,13 @@ func (s *SiteController) UpdatePassword(ctx *gin.Context) {
 
 // GET /events
 func (s *SiteController) RenderEvents(ctx *gin.Context) {
+	pag, err := data.ParsePaginationRequestOptions(ctx)
+	if err != nil {
+		log.Println(err.Error())
+		ctx.AbortWithStatus(500)
+		return
+	}
+
 	u, o, err := s.GetUserOrg(ctx)
 	if err != nil {
 		log.Println(err.Error())
@@ -309,7 +324,7 @@ func (s *SiteController) RenderEvents(ctx *gin.Context) {
 		return
 	}
 
-	e, err := s.eventRepo.AllForOrganization(o.ID)
+	e, err := s.eventRepo.AllForOrganization(o.ID, pag)
 	if err != nil {
 		log.Println(err.Error())
 		ctx.AbortWithStatus(500)

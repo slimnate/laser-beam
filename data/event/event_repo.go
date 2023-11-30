@@ -3,6 +3,9 @@ package event
 import (
 	"database/sql"
 	"errors"
+	"fmt"
+	"log"
+	"strconv"
 
 	"github.com/slimnate/laser-beam/data"
 )
@@ -50,8 +53,17 @@ func (r *EventRepository) Create(event Event, orgID int64) (*Event, error) {
 	return &event, nil
 }
 
-func (r *EventRepository) All() ([]Event, error) {
-	rows, err := r.db.Query("SELECT id, type, name, application, message, time, organization_id from events")
+func (r *EventRepository) All(pag *data.PaginationRequestOptions) ([]Event, error) {
+	if pag == nil {
+		pag = &data.PaginationRequestOptions{
+			Offset:  0,
+			Limit:   10,
+			Filter:  nil,
+			OrderBy: "id",
+		}
+	}
+
+	rows, err := r.db.Query("SELECT id, type, name, application, message, time, organization_id from events WHERE $1 = $2 ORDER BY $3 LIMIT $4 OFFSET $5", pag.Filter.Key, pag.Filter.Value, pag.OrderBy, pag.Limit, pag.Offset)
 	if err != nil {
 		return nil, err
 	}
@@ -68,22 +80,55 @@ func (r *EventRepository) All() ([]Event, error) {
 	return all, nil
 }
 
-func (r *EventRepository) AllForOrganization(orgID int64) ([]Event, error) {
-	rows, err := r.db.Query("SELECT id, type, name, application, message, time, organization_id from events WHERE organization_id = $1", orgID)
+func (r *EventRepository) AllForOrganization(orgID int64, pag *data.PaginationRequestOptions) (*data.PaginationResponseData[[]Event], error) {
+	if pag == nil {
+		log.Printf("EventRepository.AllForOrganization: No pagination options supplied, using defaults")
+		pag = data.DefaultPaginationRequestOptions()
+	}
+
+	var rows *sql.Rows
+	var err error
+	if pag.Filter != nil {
+		// Query with filter
+		rows, err = r.db.Query("SELECT id, type, name, application, message, time, organization_id from events WHERE organization_id = $1 AND $2 = $3 ORDER BY $4 LIMIT $5 OFFSET $6", orgID, pag.Filter.Key, pag.Filter.Value, pag.OrderBy, pag.Limit, pag.Offset)
+	} else {
+		// Query without filter
+		rows, err = r.db.Query("SELECT id, type, name, application, message, time, organization_id from events WHERE organization_id = $1 ORDER BY $2 LIMIT $3 OFFSET $4", orgID, pag.OrderBy, pag.Limit, pag.Offset)
+	}
+
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
-	var all []Event
+	var results []Event
 	for rows.Next() {
 		var e Event
 		if err := rows.Scan(&e.ID, &e.Type, &e.Name, &e.Application, &e.Message, &e.Time, &e.OrganizationID); err != nil {
 			return nil, err
 		}
-		all = append(all, e)
+		results = append(results, e)
 	}
-	return all, nil
+
+	total, err := r.Count("id", "organization_id", fmt.Sprintf("%d", orgID))
+	if err != nil {
+		return nil, err
+	}
+
+	pagRes := &data.PaginationResponseData[[]Event]{
+		Data:         results,
+		Request:      pag,
+		PreviousPage: pag.Previous(total),
+		NextPage:     pag.Next(total),
+		Total:        total,
+		Start:        pag.Offset + 1,
+		End:          min(pag.Offset+pag.Limit, total),
+	}
+
+	// log.Printf("Next: %s", pagRes.NextPage.ToString())
+	// log.Printf("Prev: %s", pagRes.PreviousPage.ToString())
+
+	return pagRes, nil
 }
 
 func (r *EventRepository) GetByID(id int64) (*Event, error) {
@@ -156,4 +201,27 @@ func (r *EventRepository) Delete(id int64) error {
 	}
 
 	return err
+}
+
+func (r *EventRepository) Count(column string, whereColumn string, whereValue string) (int64, error) {
+	var output string
+
+	q := fmt.Sprintf("SELECT COUNT(%s) FROM events WHERE %s = $1", column, whereColumn)
+
+	query, err := r.db.Prepare(q)
+	if err != nil {
+		return -1, err
+	}
+
+	err = query.QueryRow(whereValue).Scan(&output)
+	if err != nil {
+		return -1, err
+	}
+
+	count, err := strconv.ParseInt(output, 10, 64)
+	if err != nil {
+		return -1, err
+	}
+
+	return count, nil
 }
