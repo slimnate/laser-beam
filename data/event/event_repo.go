@@ -54,15 +54,6 @@ func (r *EventRepository) Create(event Event, orgID int64) (*Event, error) {
 }
 
 func (r *EventRepository) All(pag *data.PaginationRequestOptions) ([]Event, error) {
-	if pag == nil {
-		pag = &data.PaginationRequestOptions{
-			Offset:  0,
-			Limit:   10,
-			Filter:  nil,
-			OrderBy: "id",
-		}
-	}
-
 	rows, err := r.db.Query("SELECT id, type, name, application, message, time, organization_id from events WHERE $1 = $2 ORDER BY $3 LIMIT $4 OFFSET $5", pag.Filter.Key, pag.Filter.Value, pag.OrderBy, pag.Limit, pag.Offset)
 	if err != nil {
 		return nil, err
@@ -88,12 +79,14 @@ func (r *EventRepository) AllForOrganization(orgID int64, pag *data.PaginationRe
 
 	var rows *sql.Rows
 	var err error
+	log.Println(pag.ToString())
 	if pag.Filter != nil {
 		// Query with filter
 		rows, err = r.db.Query("SELECT id, type, name, application, message, time, organization_id from events WHERE organization_id = $1 AND $2 = $3 ORDER BY $4 LIMIT $5 OFFSET $6", orgID, pag.Filter.Key, pag.Filter.Value, pag.OrderBy, pag.Limit, pag.Offset)
 	} else {
 		// Query without filter
-		rows, err = r.db.Query("SELECT id, type, name, application, message, time, organization_id from events WHERE organization_id = $1 ORDER BY $2 LIMIT $3 OFFSET $4", orgID, pag.OrderBy, pag.Limit, pag.Offset)
+		query := fmt.Sprintf("SELECT id, type, name, application, message, time, organization_id from events WHERE organization_id = $1 ORDER BY %s %s LIMIT $2 OFFSET $3", pag.OrderBy.Column, pag.OrderBy.Direction)
+		rows, err = r.db.Query(query, orgID, pag.Limit, pag.Offset)
 	}
 
 	if err != nil {
@@ -124,9 +117,6 @@ func (r *EventRepository) AllForOrganization(orgID int64, pag *data.PaginationRe
 		Start:        pag.Offset + 1,
 		End:          min(pag.Offset+pag.Limit, total),
 	}
-
-	// log.Printf("Next: %s", pagRes.NextPage.ToString())
-	// log.Printf("Prev: %s", pagRes.PreviousPage.ToString())
 
 	return pagRes, nil
 }

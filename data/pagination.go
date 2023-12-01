@@ -1,9 +1,12 @@
 package data
 
 import (
+	"errors"
 	"fmt"
+	"html/template"
 	"log"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 )
@@ -12,12 +15,17 @@ type PaginationRequestOptions struct {
 	Offset  int64
 	Limit   int64
 	Filter  *FilterOptions
-	OrderBy string
+	OrderBy *OrderOptions
 }
 
 type FilterOptions struct {
 	Key   string
 	Value string
+}
+
+type OrderOptions struct {
+	Column    string
+	Direction string
 }
 
 type PaginationResponseData[T any] struct {
@@ -30,14 +38,38 @@ type PaginationResponseData[T any] struct {
 	Total        int64
 }
 
-// Returns a string representation fof the object for logging
+// Returns a string representation of the object for logging
 func (p *PaginationRequestOptions) ToString() string {
-	return fmt.Sprintf("offset: %d Limit: %d Filter: %s OrderBy: %s", p.Offset, p.Limit, p.Filter, p.OrderBy)
+	if p == nil {
+		return "nil"
+	}
+	return fmt.Sprintf("offset: %d Limit: %d Filter: %s OrderBy: %s", p.Offset, p.Limit, FilterOptionsToString(p.Filter), OrderOptionsToString(p.OrderBy))
 }
 
 // returns a set of query params that can be used to link to this PaginationRequestOptions object
-func (p *PaginationRequestOptions) QueryParams() string {
-	return fmt.Sprintf("?offset=%d&limit=%d&filter=%s&order_by=%s", p.Offset, p.Limit, p.Filter, p.OrderBy)
+func (p *PaginationRequestOptions) QueryParams() template.URL {
+	q := p.OffsetLimitQueryParams()
+	q = ApplyFilterOptionsToQueryParams(q, p.Filter)
+	q = ApplyOrderOptionsToQueryParams(q, p.OrderBy)
+	return template.URL(q)
+}
+
+func (p *PaginationRequestOptions) OffsetLimitQueryParams() string {
+	return fmt.Sprintf("?offset=%d&limit=%d&", p.Offset, p.Limit)
+}
+
+func ApplyFilterOptionsToQueryParams(q string, f *FilterOptions) string {
+	if f != nil {
+		return fmt.Sprintf("%s&filter=%s", q, FilterOptionsToString(f))
+	}
+	return q
+}
+
+func ApplyOrderOptionsToQueryParams(q string, o *OrderOptions) string {
+	if o != nil {
+		return fmt.Sprintf("%s&order_by=%s", q, OrderOptionsToString(o))
+	}
+	return q
 }
 
 // returns the PaginationRequestOptions object that would correspond to the next page of items
@@ -78,13 +110,66 @@ func (p *PaginationRequestOptions) Copy() *PaginationRequestOptions {
 	}
 }
 
+// Returns a string representation of the object for logging
+func FilterOptionsToString(f *FilterOptions) string {
+	if f == nil {
+		return ""
+	}
+	return fmt.Sprintf("%s:%s", f.Key, f.Value)
+}
+
+// Returns a string representation of the object for logging
+func OrderOptionsToString(o *OrderOptions) string {
+	if o == nil {
+		return ""
+	}
+	return fmt.Sprintf("%s:%s", o.Column, o.Direction)
+}
+
+// Generate a FilterOptions from a string in the format of "<key>:<value>". Returns an error if the string is empty, or the format incorrect
+func FilterOptionsFromString(s string) (*FilterOptions, error) {
+	arr := strings.Split(s, ":")
+	if len(arr) == 2 {
+		return &FilterOptions{
+			Key:   arr[0],
+			Value: arr[1],
+		}, nil
+	}
+	return nil, errors.New("invalid format for 'filter' param")
+}
+
+// Generate an OrderOptions from a string in the format of "<column>" or "<column>:<direction>" where direction is either "asc" or "desc". If the string is empty, returns the default order options(id:asc). If only a column is provided, the direction defaults to "asc". Returns error if string matches none of these formats
+func OrderOptionsFromString(s string) (*OrderOptions, error) {
+	arr := strings.Split(s, ":")
+	if len(arr) == 0 {
+		return &OrderOptions{
+			Column:    "id",
+			Direction: "asc",
+		}, nil
+	} else if len(arr) == 1 {
+		return &OrderOptions{
+			Column:    arr[0],
+			Direction: "asc",
+		}, nil
+	} else if len(arr) == 2 {
+		return &OrderOptions{
+			Column:    arr[0],
+			Direction: arr[1],
+		}, nil
+	}
+	return nil, errors.New("invalid format for 'order' param")
+}
+
 // Returns the system defaults for PaginationRequestOptions
 func DefaultPaginationRequestOptions() *PaginationRequestOptions {
 	return &PaginationRequestOptions{
-		Offset:  0,
-		Limit:   10,
-		Filter:  nil,
-		OrderBy: "id",
+		Offset: 0,
+		Limit:  10,
+		Filter: nil,
+		OrderBy: &OrderOptions{
+			Column:    "id",
+			Direction: "asc",
+		},
 	}
 }
 
@@ -95,9 +180,10 @@ func ParsePaginationRequestOptions(ctx *gin.Context) (*PaginationRequestOptions,
 
 // Parse pagination parameters from the query params of an incoming request, using custom defaults for any values not supplied
 func ParsePaginationRequestOptionsCustomDefault(ctx *gin.Context, defaultOptions *PaginationRequestOptions) (*PaginationRequestOptions, error) {
+	sysDefaults := DefaultPaginationRequestOptions()
 	offset, offsetExists := ctx.GetQuery("offset")
 	limit, limitExists := ctx.GetQuery("limit")
-	_, filterExists := ctx.GetQuery("filter")
+	filter, filterExists := ctx.GetQuery("filter")
 	order, orderExists := ctx.GetQuery("order_by")
 
 	if offsetExists {
@@ -107,6 +193,9 @@ func ParsePaginationRequestOptionsCustomDefault(ctx *gin.Context, defaultOptions
 		}
 		defaultOptions.Offset = offsetInt
 	}
+	if defaultOptions.Offset == 0 {
+		defaultOptions.Offset = sysDefaults.Offset
+	}
 
 	if limitExists {
 		limitInt, err := strconv.ParseInt(limit, 10, 64)
@@ -115,17 +204,59 @@ func ParsePaginationRequestOptionsCustomDefault(ctx *gin.Context, defaultOptions
 		}
 		defaultOptions.Limit = limitInt
 	}
-
-	if filterExists {
-		// TODO: parse filter values from string
+	if defaultOptions.Limit == 0 { // no default provided, use system defaults
+		defaultOptions.Limit = sysDefaults.Limit
 	}
 
-	// add custom or default order depending if it exists
+	if filterExists {
+		filterOptions, err := FilterOptionsFromString(filter)
+		if err != nil {
+			return nil, err
+		}
+		defaultOptions.Filter = filterOptions
+	}
+	if defaultOptions.Filter == nil {
+		defaultOptions.Filter = sysDefaults.Filter
+	}
+
 	if orderExists {
-		defaultOptions.OrderBy = order
+		orderOptions, err := OrderOptionsFromString(order)
+		if err != nil {
+			return nil, err
+		}
+		defaultOptions.OrderBy = orderOptions
+	}
+	if defaultOptions.OrderBy == nil {
+		defaultOptions.OrderBy = sysDefaults.OrderBy
 	}
 
 	log.Println(defaultOptions.ToString())
 
 	return defaultOptions, nil
+}
+
+func (p *PaginationRequestOptions) SortLinkForColumn(col string) template.URL {
+	q := p.OffsetLimitQueryParams()
+	q = ApplyFilterOptionsToQueryParams(q, p.Filter)
+	newOrder := OrderOptions{}
+	if p.OrderBy == nil {
+		newOrder.Column = "id"
+		newOrder.Direction = "asc"
+	} else {
+		newOrder.Column = col
+		if col == p.OrderBy.Column {
+			// same column, so reverse directions
+			if strings.ToLower(p.OrderBy.Direction) == "asc" {
+				newOrder.Direction = "desc"
+			} else {
+				newOrder.Direction = "asc"
+			}
+		} else {
+			// new column, so default to asc
+			newOrder.Direction = "asc"
+		}
+	}
+	q = ApplyOrderOptionsToQueryParams(q, &newOrder)
+
+	return template.URL(q)
 }
