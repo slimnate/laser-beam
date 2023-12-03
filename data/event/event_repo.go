@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"strconv"
+	"strings"
 
 	"github.com/slimnate/laser-beam/data"
 )
@@ -79,10 +80,11 @@ func (r *EventRepository) AllForOrganization(orgID int64, pag *data.PaginationRe
 
 	var rows *sql.Rows
 	var err error
-	log.Println(pag.ToString())
+	log.Printf("%+v\n", pag)
 	if pag.Filter != nil {
+		query := fmt.Sprintf("SELECT id, type, name, application, message, time, organization_id from events WHERE organization_id = $1 AND %s = $2 ORDER BY %s %s LIMIT $3 OFFSET $4", pag.Filter.Key, pag.OrderBy.Column, pag.OrderBy.Direction)
 		// Query with filter
-		rows, err = r.db.Query("SELECT id, type, name, application, message, time, organization_id from events WHERE organization_id = $1 AND $2 = $3 ORDER BY $4 LIMIT $5 OFFSET $6", orgID, pag.Filter.Key, pag.Filter.Value, pag.OrderBy, pag.Limit, pag.Offset)
+		rows, err = r.db.Query(query, orgID, pag.Filter.Value, pag.Limit, pag.Offset)
 	} else {
 		// Query without filter
 		query := fmt.Sprintf("SELECT id, type, name, application, message, time, organization_id from events WHERE organization_id = $1 ORDER BY %s %s LIMIT $2 OFFSET $3", pag.OrderBy.Column, pag.OrderBy.Direction)
@@ -103,19 +105,48 @@ func (r *EventRepository) AllForOrganization(orgID int64, pag *data.PaginationRe
 		results = append(results, e)
 	}
 
-	total, err := r.Count("id", "organization_id", fmt.Sprintf("%d", orgID))
+	total, err := r.Count(&data.FilterOption{
+		Key:   "organization_id",
+		Value: fmt.Sprint(orgID),
+	}, pag.Filter)
+
 	if err != nil {
 		return nil, err
 	}
 
+	typeValues, err := r.GetDistinctValues("type")
+	if err != nil {
+		return nil, err
+	}
+	typeOptionsList := data.FilterOptionsList{
+		PropertyName: "type",
+		Values:       typeValues,
+	}
+	if pag.Filter != nil && pag.Filter.Key == "type" {
+		typeOptionsList.SelectedValue = pag.Filter.Value
+	}
+
+	appValues, err := r.GetDistinctValues("application")
+	if err != nil {
+		return nil, err
+	}
+	appOptionsList := data.FilterOptionsList{
+		PropertyName: "application",
+		Values:       appValues,
+	}
+	if pag.Filter != nil && pag.Filter.Key == "application" {
+		appOptionsList.SelectedValue = pag.Filter.Value
+	}
+
 	pagRes := &data.PaginationResponseData[[]Event]{
-		Data:         results,
-		Request:      pag,
-		PreviousPage: pag.Previous(total),
-		NextPage:     pag.Next(total),
-		Total:        total,
-		Start:        pag.Offset + 1,
-		End:          min(pag.Offset+pag.Limit, total),
+		Data:          results,
+		Request:       pag,
+		PreviousPage:  pag.Previous(total),
+		NextPage:      pag.Next(total),
+		FilterOptions: []data.FilterOptionsList{typeOptionsList, appOptionsList},
+		Total:         total,
+		Start:         pag.Offset + 1,
+		End:           min(pag.Offset+pag.Limit, total),
 	}
 
 	return pagRes, nil
@@ -193,17 +224,27 @@ func (r *EventRepository) Delete(id int64) error {
 	return err
 }
 
-func (r *EventRepository) Count(column string, whereColumn string, whereValue string) (int64, error) {
+func (r *EventRepository) Count(filters ...*data.FilterOption) (int64, error) {
 	var output string
+	var filterStrs []string
+	var args []any
 
-	q := fmt.Sprintf("SELECT COUNT(%s) FROM events WHERE %s = $1", column, whereColumn)
+	for i, f := range filters {
+		if f != nil {
+			s := fmt.Sprintf("%s = $%d", f.Key, i+1)
+			filterStrs = append(filterStrs, s)
+			args = append(args, f.Value)
+		}
+	}
+
+	q := fmt.Sprintf("SELECT COUNT(id) FROM events WHERE %s", strings.Join(filterStrs, " AND "))
 
 	query, err := r.db.Prepare(q)
 	if err != nil {
 		return -1, err
 	}
 
-	err = query.QueryRow(whereValue).Scan(&output)
+	err = query.QueryRow(args...).Scan(&output)
 	if err != nil {
 		return -1, err
 	}
@@ -214,4 +255,26 @@ func (r *EventRepository) Count(column string, whereColumn string, whereValue st
 	}
 
 	return count, nil
+}
+
+func (r *EventRepository) GetDistinctValues(columnName string) ([]string, error) {
+	var values []string
+
+	q := fmt.Sprintf("SELECT DISTINCT %s FROM events", columnName)
+
+	rows, err := r.db.Query(q)
+	if err != nil {
+		return nil, err
+	}
+
+	for rows.Next() {
+		var v string
+		err := rows.Scan(&v)
+		if err != nil {
+			return nil, err
+		}
+		values = append(values, v)
+	}
+
+	return values, nil
 }
