@@ -1044,6 +1044,10 @@ video {
   padding-bottom: 0.625rem;
 }
 
+.pe-3 {
+  padding-inline-end: 0.75rem;
+}
+
 .pr-2 {
   padding-right: 0.5rem;
 }
@@ -1260,6 +1264,10 @@ video {
 
 .focus-visible\:\!outline-0:focus-visible {
   outline-width: 0px !important;
+}
+
+:is([dir="rtl"] .rtl\:left-0) {
+  left: 0px;
 }
 
 :is([dir="rtl"] .rtl\:right-0) {
