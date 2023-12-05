@@ -78,18 +78,45 @@ func (r *EventRepository) AllForOrganization(orgID int64, pag *data.PaginationRe
 		pag = data.DefaultPaginationRequestOptions()
 	}
 
-	var rows *sql.Rows
-	var err error
-	log.Printf("%+v\n", pag)
+	var qArgs []any
+	qArgsIndex := 1
+
+	// Add org id where clause to query
+	query := fmt.Sprintf("SELECT id, type, name, application, message, time, organization_id from events WHERE organization_id = $%d", qArgsIndex)
+	qArgs = append(qArgs, orgID)
+	qArgsIndex++
+
+	// add filter clause if it exists
 	if pag.Filter != nil {
-		query := fmt.Sprintf("SELECT id, type, name, application, message, time, organization_id from events WHERE organization_id = $1 AND %s = $2 ORDER BY %s %s LIMIT $3 OFFSET $4", pag.Filter.Key, pag.OrderBy.Column, pag.OrderBy.Direction)
-		// Query with filter
-		rows, err = r.db.Query(query, orgID, pag.Filter.Value, pag.Limit, pag.Offset)
-	} else {
-		// Query without filter
-		query := fmt.Sprintf("SELECT id, type, name, application, message, time, organization_id from events WHERE organization_id = $1 ORDER BY %s %s LIMIT $2 OFFSET $3", pag.OrderBy.Column, pag.OrderBy.Direction)
-		rows, err = r.db.Query(query, orgID, pag.Limit, pag.Offset)
+		query += fmt.Sprintf(" AND %s = $%d", pag.Filter.Key, qArgsIndex)
+		qArgs = append(qArgs, pag.Filter.Value)
+		qArgsIndex++
 	}
+
+	// add search clause if it exists
+	if pag.Search != "" {
+		query += fmt.Sprintf(" AND to_tsvector(type || ' ' || name || ' ' || application || ' ' || message) @@ to_tsquery($%d)", qArgsIndex)
+		qArgs = append(qArgs, fmt.Sprintf("%s:*", pag.Search))
+		qArgsIndex++
+	}
+
+	// add order by clause
+	query += fmt.Sprintf(" ORDER BY %s %s", pag.OrderBy.Column, pag.OrderBy.Direction)
+
+	// add limit
+	query += fmt.Sprintf(" LIMIT $%d", qArgsIndex)
+	qArgs = append(qArgs, pag.Limit)
+	qArgsIndex++
+
+	// add offset
+	query += fmt.Sprintf(" OFFSET $%d", qArgsIndex)
+	qArgs = append(qArgs, pag.Offset)
+	qArgsIndex++
+
+	log.Printf("%+v\n", pag)
+	log.Println(query)
+
+	rows, err := r.db.Query(query, qArgs...)
 
 	if err != nil {
 		return nil, err
@@ -105,7 +132,7 @@ func (r *EventRepository) AllForOrganization(orgID int64, pag *data.PaginationRe
 		results = append(results, e)
 	}
 
-	total, err := r.Count(&data.FilterOption{
+	total, err := r.Count(pag.Search, &data.FilterOption{
 		Key:   "organization_id",
 		Value: fmt.Sprint(orgID),
 	}, pag.Filter)
@@ -224,20 +251,31 @@ func (r *EventRepository) Delete(id int64) error {
 	return err
 }
 
-func (r *EventRepository) Count(filters ...*data.FilterOption) (int64, error) {
+func (r *EventRepository) Count(search string, filters ...*data.FilterOption) (int64, error) {
 	var output string
-	var filterStrs []string
+	var whereClauses []string
 	var args []any
+	var clauseIndex = 0
 
-	for i, f := range filters {
+	for ; clauseIndex < len(filters); clauseIndex++ {
+		f := filters[clauseIndex]
 		if f != nil {
-			s := fmt.Sprintf("%s = $%d", f.Key, i+1)
-			filterStrs = append(filterStrs, s)
+			clause := fmt.Sprintf("%s = $%d", f.Key, clauseIndex+1)
+			whereClauses = append(whereClauses, clause)
 			args = append(args, f.Value)
 		}
 	}
 
-	q := fmt.Sprintf("SELECT COUNT(id) FROM events WHERE %s", strings.Join(filterStrs, " AND "))
+	// add search clause if it exists
+	if search != "" {
+		clause := fmt.Sprintf("to_tsvector(type || ' ' || name || ' ' || application || ' ' || message) @@ to_tsquery($%d)", clauseIndex)
+		whereClauses = append(whereClauses, clause)
+		args = append(args, fmt.Sprintf("%s:*", search))
+	}
+
+	q := fmt.Sprintf("SELECT COUNT(id) FROM events WHERE %s", strings.Join(whereClauses, " AND "))
+
+	log.Println(q)
 
 	query, err := r.db.Prepare(q)
 	if err != nil {

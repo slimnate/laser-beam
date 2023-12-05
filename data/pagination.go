@@ -15,6 +15,7 @@ type PaginationRequestOptions struct {
 	Limit   int64
 	Filter  *FilterOption
 	OrderBy *OrderOption
+	Search  string
 }
 
 type FilterOption struct {
@@ -57,6 +58,7 @@ func (p *PaginationRequestOptions) QueryParams() template.URL {
 	q := p.OffsetLimitQueryParams()
 	q = ApplyFilterOptionsToQueryParams(q, p.Filter)
 	q = ApplyOrderOptionsToQueryParams(q, p.OrderBy)
+	// q = ApplySearchToQueryParams(q, p.Search)
 	return template.URL(q)
 }
 
@@ -74,6 +76,13 @@ func ApplyFilterOptionsToQueryParams(q string, f *FilterOption) string {
 func ApplyOrderOptionsToQueryParams(q string, o *OrderOption) string {
 	if o != nil {
 		return fmt.Sprintf("%s&order_by=%s", q, OrderOptionsToString(o))
+	}
+	return q
+}
+
+func ApplySearchToQueryParams(q string, s string) string {
+	if s != "" {
+		return fmt.Sprintf("%s&search=%s", q, s)
 	}
 	return q
 }
@@ -191,7 +200,9 @@ func ParsePaginationRequestOptionsCustomDefault(ctx *gin.Context, defaultOptions
 	limit, limitExists := ctx.GetQuery("limit")
 	filter, filterExists := ctx.GetQuery("filter")
 	order, orderExists := ctx.GetQuery("order_by")
+	search, _ := ctx.GetQuery("search")
 
+	// parse offset
 	if offsetExists {
 		offsetInt, err := strconv.ParseInt(offset, 10, 64)
 		if err != nil {
@@ -203,6 +214,7 @@ func ParsePaginationRequestOptionsCustomDefault(ctx *gin.Context, defaultOptions
 		defaultOptions.Offset = sysDefaults.Offset
 	}
 
+	// parse limit
 	if limitExists {
 		limitInt, err := strconv.ParseInt(limit, 10, 64)
 		if err != nil {
@@ -214,6 +226,7 @@ func ParsePaginationRequestOptionsCustomDefault(ctx *gin.Context, defaultOptions
 		defaultOptions.Limit = sysDefaults.Limit
 	}
 
+	// parse filter
 	if filterExists {
 		filterOptions, err := FilterOptionsFromString(filter)
 		if err != nil {
@@ -225,6 +238,7 @@ func ParsePaginationRequestOptionsCustomDefault(ctx *gin.Context, defaultOptions
 		defaultOptions.Filter = sysDefaults.Filter
 	}
 
+	// parse order
 	if orderExists {
 		orderOptions, err := OrderOptionsFromString(order)
 		if err != nil {
@@ -236,12 +250,17 @@ func ParsePaginationRequestOptionsCustomDefault(ctx *gin.Context, defaultOptions
 		defaultOptions.OrderBy = sysDefaults.OrderBy
 	}
 
+	// parse search
+	defaultOptions.Search = search
+
 	return defaultOptions, nil
 }
 
 func (p *PaginationRequestOptions) SortLinkForColumn(col string) template.URL {
 	q := p.OffsetLimitQueryParams()
 	q = ApplyFilterOptionsToQueryParams(q, p.Filter)
+	q = ApplySearchToQueryParams(q, p.Search)
+
 	newOrder := OrderOption{}
 	if p.OrderBy == nil {
 		newOrder.Column = "id"
@@ -268,6 +287,7 @@ func (p *PaginationRequestOptions) SortLinkForColumn(col string) template.URL {
 func (p *PaginationRequestOptions) FilterLink(col string, value string) template.URL {
 	q := p.OffsetLimitQueryParams()
 	q = ApplyOrderOptionsToQueryParams(q, p.OrderBy)
+	q = ApplySearchToQueryParams(q, p.Search)
 
 	// if col and value both provided, init newfilter. Otherwise it wil be nil
 	// this is how we get a link to "unselect" a filter
@@ -280,5 +300,23 @@ func (p *PaginationRequestOptions) FilterLink(col string, value string) template
 	}
 
 	q = ApplyFilterOptionsToQueryParams(q, newFilter)
+	return template.URL(q)
+}
+
+func (p *PaginationRequestOptions) SearchLink(s string) template.URL {
+	q := p.OffsetLimitQueryParams()
+	q = ApplyFilterOptionsToQueryParams(q, p.Filter)
+	q = ApplyOrderOptionsToQueryParams(q, p.OrderBy)
+
+	q = ApplySearchToQueryParams(q, s)
+	return template.URL(q)
+}
+
+func (p *PaginationRequestOptions) SearchLinkStub(s string) template.URL {
+	q := p.OffsetLimitQueryParams()
+	q = ApplyFilterOptionsToQueryParams(q, p.Filter)
+	q = ApplyOrderOptionsToQueryParams(q, p.OrderBy)
+
+	q += "&search="
 	return template.URL(q)
 }
