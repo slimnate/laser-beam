@@ -1,6 +1,7 @@
 package site
 
 import (
+	"github.com/slimnate/laser-beam/data"
 	"github.com/slimnate/laser-beam/data/event"
 	"github.com/slimnate/laser-beam/data/organization"
 	"github.com/slimnate/laser-beam/data/user"
@@ -9,7 +10,7 @@ import (
 type PageData struct {
 	User         *user.User
 	Organization *organization.Organization
-	Events       []event.Event
+	Events       *data.PaginationResponseData[[]event.Event]
 	Route        string
 	Errors       map[string]string
 	Toasts       []string

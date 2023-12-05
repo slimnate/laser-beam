@@ -3,7 +3,11 @@
   <body class="noscript">
     {{ template "navbar.html" . }}
 
-    <main class="slide-it mx-12 mt-4" id="content">
+    <main
+      class="slide-it mx-12 mt-4"
+      id="content"
+      hx-on::after-settle="handleAfterSettle()"
+    >
       {{ if eq .Route "/" }} {{ template "dashboard.html" .}} {{ end }} {{ if eq
       .Route "/account" }} {{ template "user_display.html" . }} {{end}} {{ if eq
       .Route "/account/edit" }} {{ template "user_form.html" . }} {{end}} {{ if

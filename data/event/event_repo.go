@@ -3,6 +3,10 @@ package event
 import (
 	"database/sql"
 	"errors"
+	"fmt"
+	"log"
+	"strconv"
+	"strings"
 
 	"github.com/slimnate/laser-beam/data"
 )
@@ -50,8 +54,8 @@ func (r *EventRepository) Create(event Event, orgID int64) (*Event, error) {
 	return &event, nil
 }
 
-func (r *EventRepository) All() ([]Event, error) {
-	rows, err := r.db.Query("SELECT id, type, name, application, message, time, organization_id from events")
+func (r *EventRepository) All(pag *data.PaginationRequestOptions) ([]Event, error) {
+	rows, err := r.db.Query("SELECT id, type, name, application, message, time, organization_id from events WHERE $1 = $2 ORDER BY $3 LIMIT $4 OFFSET $5", pag.Filter.Key, pag.Filter.Value, pag.OrderBy, pag.Limit, pag.Offset)
 	if err != nil {
 		return nil, err
 	}
@@ -68,22 +72,115 @@ func (r *EventRepository) All() ([]Event, error) {
 	return all, nil
 }
 
-func (r *EventRepository) AllForOrganization(orgID int64) ([]Event, error) {
-	rows, err := r.db.Query("SELECT id, type, name, application, message, time, organization_id from events WHERE organization_id = $1", orgID)
+func (r *EventRepository) AllForOrganization(orgID int64, pag *data.PaginationRequestOptions) (*data.PaginationResponseData[[]Event], error) {
+	if pag == nil {
+		log.Printf("EventRepository.AllForOrganization: No pagination options supplied, using defaults")
+		pag = data.DefaultPaginationRequestOptions()
+	}
+
+	var qArgs []any
+	qArgsIndex := 1
+
+	// Add org id where clause to query
+	query := fmt.Sprintf("SELECT id, type, name, application, message, time, organization_id from events WHERE organization_id = $%d", qArgsIndex)
+	qArgs = append(qArgs, orgID)
+	qArgsIndex++
+
+	// add filter clause if it exists
+	if pag.Filter != nil {
+		query += fmt.Sprintf(" AND %s = $%d", pag.Filter.Key, qArgsIndex)
+		qArgs = append(qArgs, pag.Filter.Value)
+		qArgsIndex++
+	}
+
+	// add search clause if it exists
+	if pag.Search != "" {
+		query += fmt.Sprintf(" AND to_tsvector(type || ' ' || name || ' ' || application || ' ' || message) @@ to_tsquery($%d)", qArgsIndex)
+		terms := strings.Split(pag.Search, " ")
+		for i, t := range terms {
+			terms[i] = fmt.Sprintf("%s:*", t)
+		}
+		qArgs = append(qArgs, strings.Join(terms, " & "))
+		qArgsIndex++
+	}
+
+	// add order by clause
+	query += fmt.Sprintf(" ORDER BY %s %s", pag.OrderBy.Column, pag.OrderBy.Direction)
+
+	// add limit
+	query += fmt.Sprintf(" LIMIT $%d", qArgsIndex)
+	qArgs = append(qArgs, pag.Limit)
+	qArgsIndex++
+
+	// add offset
+	query += fmt.Sprintf(" OFFSET $%d", qArgsIndex)
+	qArgs = append(qArgs, pag.Offset)
+	qArgsIndex++
+
+	log.Printf("%+v\n", pag)
+	log.Println(query)
+
+	rows, err := r.db.Query(query, qArgs...)
+
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
-	var all []Event
+	var results []Event
 	for rows.Next() {
 		var e Event
 		if err := rows.Scan(&e.ID, &e.Type, &e.Name, &e.Application, &e.Message, &e.Time, &e.OrganizationID); err != nil {
 			return nil, err
 		}
-		all = append(all, e)
+		results = append(results, e)
 	}
-	return all, nil
+
+	total, err := r.Count(pag.Search, &data.FilterOption{
+		Key:   "organization_id",
+		Value: fmt.Sprint(orgID),
+	}, pag.Filter)
+
+	if err != nil {
+		return nil, err
+	}
+
+	typeValues, err := r.GetDistinctValues("type")
+	if err != nil {
+		return nil, err
+	}
+	typeOptionsList := data.FilterOptionsList{
+		PropertyName: "type",
+		Values:       typeValues,
+	}
+	if pag.Filter != nil && pag.Filter.Key == "type" {
+		typeOptionsList.SelectedValue = pag.Filter.Value
+	}
+
+	appValues, err := r.GetDistinctValues("application")
+	if err != nil {
+		return nil, err
+	}
+	appOptionsList := data.FilterOptionsList{
+		PropertyName: "application",
+		Values:       appValues,
+	}
+	if pag.Filter != nil && pag.Filter.Key == "application" {
+		appOptionsList.SelectedValue = pag.Filter.Value
+	}
+
+	pagRes := &data.PaginationResponseData[[]Event]{
+		Data:          results,
+		Request:       pag,
+		PreviousPage:  pag.Previous(total),
+		NextPage:      pag.Next(total),
+		FilterOptions: []data.FilterOptionsList{typeOptionsList, appOptionsList},
+		Total:         total,
+		Start:         pag.Offset + 1,
+		End:           min(pag.Offset+pag.Limit, total),
+	}
+
+	return pagRes, nil
 }
 
 func (r *EventRepository) GetByID(id int64) (*Event, error) {
@@ -156,4 +253,74 @@ func (r *EventRepository) Delete(id int64) error {
 	}
 
 	return err
+}
+
+func (r *EventRepository) Count(search string, filters ...*data.FilterOption) (int64, error) {
+	var output string
+	var whereClauses []string
+	var args []any
+	var clauseIndex = 0
+
+	for ; clauseIndex < len(filters); clauseIndex++ {
+		f := filters[clauseIndex]
+		if f != nil {
+			clause := fmt.Sprintf("%s = $%d", f.Key, clauseIndex+1)
+			whereClauses = append(whereClauses, clause)
+			args = append(args, f.Value)
+		}
+	}
+
+	// add search clause if it exists
+	if search != "" {
+		clause := fmt.Sprintf("to_tsvector(type || ' ' || name || ' ' || application || ' ' || message) @@ to_tsquery($%d)", clauseIndex)
+		whereClauses = append(whereClauses, clause)
+		terms := strings.Split(search, " ")
+		for i, t := range terms {
+			terms[i] = fmt.Sprintf("%s:*", t)
+		}
+		args = append(args, strings.Join(terms, " & "))
+	}
+
+	q := fmt.Sprintf("SELECT COUNT(id) FROM events WHERE %s", strings.Join(whereClauses, " AND "))
+
+	log.Println(q)
+
+	query, err := r.db.Prepare(q)
+	if err != nil {
+		return -1, err
+	}
+
+	err = query.QueryRow(args...).Scan(&output)
+	if err != nil {
+		return -1, err
+	}
+
+	count, err := strconv.ParseInt(output, 10, 64)
+	if err != nil {
+		return -1, err
+	}
+
+	return count, nil
+}
+
+func (r *EventRepository) GetDistinctValues(columnName string) ([]string, error) {
+	var values []string
+
+	q := fmt.Sprintf("SELECT DISTINCT %s FROM events", columnName)
+
+	rows, err := r.db.Query(q)
+	if err != nil {
+		return nil, err
+	}
+
+	for rows.Next() {
+		var v string
+		err := rows.Scan(&v)
+		if err != nil {
+			return nil, err
+		}
+		values = append(values, v)
+	}
+
+	return values, nil
 }

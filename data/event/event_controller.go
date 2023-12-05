@@ -5,6 +5,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/slimnate/laser-beam/auth"
+	"github.com/slimnate/laser-beam/data"
 )
 
 type EventController struct {
@@ -23,7 +24,13 @@ func (c *EventController) ListGlobal(ctx *gin.Context) {
 		return
 	}
 
-	events, err := c.repo.All()
+	pag, err := data.ParsePaginationRequestOptions(ctx)
+	if err != nil {
+		ctx.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
+		return
+	}
+
+	events, err := c.repo.All(pag)
 	if err != nil {
 		ctx.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
 		return
@@ -40,8 +47,14 @@ func (c *EventController) List(ctx *gin.Context) {
 		return
 	}
 
+	pag, err := data.ParsePaginationRequestOptions(ctx)
+	if err != nil {
+		ctx.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
+		return
+	}
+
 	// Request events list from repo
-	orgs, err := c.repo.AllForOrganization(orgID)
+	orgs, err := c.repo.AllForOrganization(orgID, pag)
 	if err != nil {
 		ctx.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
 		return
