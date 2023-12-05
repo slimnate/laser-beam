@@ -22,6 +22,7 @@ func NewEventRepository(db *sql.DB) *EventRepository {
 }
 
 func (r *EventRepository) Migrate() error {
+	// create table
 	query := `
 	CREATE TABLE IF NOT EXISTS events(
 		id SERIAL UNIQUE PRIMARY KEY,
@@ -36,6 +37,27 @@ func (r *EventRepository) Migrate() error {
 	`
 
 	_, err := r.db.Exec(query)
+	if err != nil {
+		return err
+	}
+
+	// add search vector column
+	query = `ALTER TABLE events
+		ADD COLUMN search_tsv tsvector
+		GENERATED ALWAYS AS (
+			to_tsvector('english', type || ' ' || name || ' ' || coalesce(application, '') || ' ' || coalesce(message, ''))
+		)
+		STORED`
+
+	_, err = r.db.Exec(query)
+	if err != nil {
+		return err
+	}
+
+	// create search vector index
+	query = "CREATE INDEX search_idx ON events USING GIN (search_tsv)"
+	_, err = r.db.Exec(query)
+
 	return err
 }
 
@@ -95,7 +117,7 @@ func (r *EventRepository) AllForOrganization(orgID int64, pag *data.PaginationRe
 
 	// add search clause if it exists
 	if pag.Search != "" {
-		query += fmt.Sprintf(" AND to_tsvector(type || ' ' || name || ' ' || application || ' ' || message) @@ to_tsquery($%d)", qArgsIndex)
+		query += fmt.Sprintf(" AND search_tsv @@ to_tsquery($%d)", qArgsIndex)
 		terms := strings.Split(pag.Search, " ")
 		for i, t := range terms {
 			terms[i] = fmt.Sprintf("%s:*", t)
@@ -272,7 +294,7 @@ func (r *EventRepository) Count(search string, filters ...*data.FilterOption) (i
 
 	// add search clause if it exists
 	if search != "" {
-		clause := fmt.Sprintf("to_tsvector(type || ' ' || name || ' ' || application || ' ' || message) @@ to_tsquery($%d)", clauseIndex)
+		clause := fmt.Sprintf("search_tsv @@ to_tsquery($%d)", clauseIndex)
 		whereClauses = append(whereClauses, clause)
 		terms := strings.Split(search, " ")
 		for i, t := range terms {
