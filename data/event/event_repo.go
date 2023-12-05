@@ -96,7 +96,11 @@ func (r *EventRepository) AllForOrganization(orgID int64, pag *data.PaginationRe
 	// add search clause if it exists
 	if pag.Search != "" {
 		query += fmt.Sprintf(" AND to_tsvector(type || ' ' || name || ' ' || application || ' ' || message) @@ to_tsquery($%d)", qArgsIndex)
-		qArgs = append(qArgs, fmt.Sprintf("%s:*", pag.Search))
+		terms := strings.Split(pag.Search, " ")
+		for i, t := range terms {
+			terms[i] = fmt.Sprintf("%s:*", t)
+		}
+		qArgs = append(qArgs, strings.Join(terms, " & "))
 		qArgsIndex++
 	}
 
@@ -270,7 +274,11 @@ func (r *EventRepository) Count(search string, filters ...*data.FilterOption) (i
 	if search != "" {
 		clause := fmt.Sprintf("to_tsvector(type || ' ' || name || ' ' || application || ' ' || message) @@ to_tsquery($%d)", clauseIndex)
 		whereClauses = append(whereClauses, clause)
-		args = append(args, fmt.Sprintf("%s:*", search))
+		terms := strings.Split(search, " ")
+		for i, t := range terms {
+			terms[i] = fmt.Sprintf("%s:*", t)
+		}
+		args = append(args, strings.Join(terms, " & "))
 	}
 
 	q := fmt.Sprintf("SELECT COUNT(id) FROM events WHERE %s", strings.Join(whereClauses, " AND "))
